@@ -1,0 +1,113 @@
+[gd_scene load_steps=11 format=3 uid="uid://bxdyb_game_v1"]
+
+[ext_resource type="Script" path="res://scripts/stage/GameStage.gd" id="1_stage"]
+[ext_resource type="Script" path="res://scripts/stage/Camera.gd" id="2_cam"]
+[ext_resource type="Script" path="res://scripts/stage/EffectPlayer.gd" id="3_ep"]
+[ext_resource type="PackedScene" path="res://scenes/stage/Ground.tscn" id="4_ground"]
+[ext_resource type="PackedScene" path="res://scenes/stage/Background.tscn" id="5_bg"]
+[ext_resource type="PackedScene" path="res://scenes/ui/BattleLog.tscn" id="6_log"]
+[ext_resource type="PackedScene" path="res://scenes/ui/HandPicker.tscn" id="7_hp"]
+[ext_resource type="PackedScene" path="res://scenes/ui/WinnerPicker.tscn" id="8_wp"]
+
+[sub_resource type="StyleBoxFlat" id="phase_bg"]
+bg_color = Color(0.06, 0.08, 0.11, 0.86)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+content_margin_left = 14.0
+content_margin_top = 6.0
+content_margin_right = 14.0
+content_margin_bottom = 6.0
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1_stage")
+
+[node name="Background" parent="." instance=ExtResource("5_bg")]
+
+[node name="World" type="Node2D" parent="."]
+position = Vector2(640, 360)
+
+[node name="Ground" parent="World" instance=ExtResource("4_ground")]
+
+[node name="Houses" type="Node2D" parent="World"]
+y_sort_enabled = true
+
+[node name="Characters" type="Node2D" parent="World"]
+y_sort_enabled = true
+
+[node name="CinematicCamera" type="Camera2D" parent="World"]
+script = ExtResource("2_cam")
+rest_zoom = 1.0
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
+
+[node name="EffectPlayer" type="Node" parent="."]
+script = ExtResource("3_ep")
+
+[node name="UILayer" type="CanvasLayer" parent="."]
+
+[node name="BattleLog" parent="UILayer" instance=ExtResource("6_log")]
+offset_left = 980.0
+offset_top = 20.0
+
+[node name="HandPicker" parent="UILayer" instance=ExtResource("7_hp")]
+offset_left = 30.0
+offset_top = 600.0
+
+[node name="WinnerPicker" parent="UILayer" instance=ExtResource("8_wp")]
+
+[node name="PhaseBannerBg" type="Panel" parent="UILayer"]
+offset_left = 30.0
+offset_top = 20.0
+offset_right = 360.0
+offset_bottom = 60.0
+theme_override_styles/panel = SubResource("phase_bg")
+
+[node name="PhaseBanner" type="Label" parent="UILayer"]
+offset_left = 30.0
+offset_top = 20.0
+offset_right = 360.0
+offset_bottom = 60.0
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(1, 0.94, 0.62, 1)
+
+[node name="TieBanner" type="Label" parent="UILayer"]
+offset_left = 320.0
+offset_top = 280.0
+offset_right = 960.0
+offset_bottom = 360.0
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "平局"
+theme_override_font_sizes/font_size = 38
+theme_override_colors/font_color = Color(1, 0.94, 0.62, 1)
+theme_override_colors/font_outline_color = Color(0.06, 0.07, 0.1, 1)
+theme_override_constants/outline_size = 8
+
+[node name="VictoryOverlay" type="Control" parent="UILayer"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Dim" type="ColorRect" parent="UILayer/VictoryOverlay"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.6)
+
+[node name="Center" type="CenterContainer" parent="UILayer/VictoryOverlay"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Label" type="Label" parent="UILayer/VictoryOverlay/Center"]
+text = "胜利"
+theme_override_font_sizes/font_size = 64
+theme_override_colors/font_color = Color(1, 0.94, 0.62, 1)
+theme_override_colors/font_outline_color = Color(0.06, 0.07, 0.1, 1)
+theme_override_constants/outline_size = 8

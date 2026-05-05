@@ -1,0 +1,21 @@
+[gd_scene load_steps=2 format=3 uid="uid://bxdyb_wood_v1"]
+
+[sub_resource type="ParticleProcessMaterial" id="wood_mat"]
+particle_flag_disable_z = true
+direction = Vector3(0, -1, 0)
+spread = 90.0
+initial_velocity_min = 200.0
+initial_velocity_max = 400.0
+gravity = Vector3(0, 540, 0)
+angular_velocity_min = -360.0
+angular_velocity_max = 360.0
+scale_min = 0.4
+scale_max = 1.0
+color = Color(0.55, 0.32, 0.12, 1)
+
+[node name="WoodChipEmitter" type="GPUParticles2D"]
+amount = 32
+lifetime = 0.7
+one_shot = true
+explosiveness = 0.95
+process_material = SubResource("wood_mat")

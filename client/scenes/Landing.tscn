@@ -1,0 +1,172 @@
+[gd_scene load_steps=3 format=3 uid="uid://bxdyb_landing_v1"]
+
+[ext_resource type="Script" path="res://scripts/ui/Landing.gd" id="1_landing"]
+
+[sub_resource type="StyleBoxFlat" id="card"]
+bg_color = Color(0.094, 0.106, 0.149, 0.94)
+border_color = Color(1.0, 0.84, 0.2, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+content_margin_left = 22.0
+content_margin_top = 22.0
+content_margin_right = 22.0
+content_margin_bottom = 22.0
+
+[node name="Landing" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_landing")
+
+[node name="Sky" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.18, 0.27, 0.43, 1)
+
+[node name="Mountains" type="Polygon2D" parent="."]
+position = Vector2(0, 540)
+color = Color(0.27, 0.35, 0.44, 1)
+polygon = PackedVector2Array(0, 0, 200, -180, 480, -80, 760, -240, 1080, -100, 1280, -200, 1280, 180, 0, 180)
+
+[node name="Grass" type="ColorRect" parent="."]
+layout_mode = 1
+anchor_top = 0.62
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.36, 0.5, 0.27, 1)
+
+[node name="Hero" type="Node2D" parent="."]
+position = Vector2(960, 480)
+
+[node name="HouseRoof" type="Polygon2D" parent="Hero"]
+color = Color(0.78, 0.36, 0.23, 1)
+polygon = PackedVector2Array(-150, 0, 150, 0, 0, -110)
+
+[node name="HouseWalls" type="Polygon2D" parent="Hero"]
+color = Color(0.93, 0.84, 0.66, 1)
+polygon = PackedVector2Array(-128, 0, 128, 0, 128, 140, -128, 140)
+
+[node name="HouseDoor" type="Polygon2D" parent="Hero"]
+color = Color(0.32, 0.18, 0.08, 1)
+polygon = PackedVector2Array(-30, 60, 30, 60, 30, 140, -30, 140)
+
+[node name="HouseWindowL" type="Polygon2D" parent="Hero"]
+color = Color(0.55, 0.78, 0.92, 1)
+polygon = PackedVector2Array(-100, 30, -60, 30, -60, 60, -100, 60)
+
+[node name="HouseWindowR" type="Polygon2D" parent="Hero"]
+color = Color(0.55, 0.78, 0.92, 1)
+polygon = PackedVector2Array(60, 30, 100, 30, 100, 60, 60, 60)
+
+[node name="Char" type="Node2D" parent="."]
+position = Vector2(420, 540)
+
+[node name="Legs" type="Polygon2D" parent="Char"]
+color = Color(0.31, 0.21, 0.13, 1)
+polygon = PackedVector2Array(-22, 0, 22, 0, 22, 56, -22, 56)
+
+[node name="Pants" type="Polygon2D" parent="Char"]
+color = Color(0.85, 0.18, 0.22, 1)
+polygon = PackedVector2Array(-22, 22, 22, 22, 22, 42, -22, 42)
+
+[node name="Torso" type="Polygon2D" parent="Char"]
+color = Color(0.4, 0.55, 0.85, 1)
+polygon = PackedVector2Array(-30, -64, 30, -64, 26, 0, -26, 0)
+
+[node name="Head" type="Polygon2D" parent="Char"]
+color = Color(0.95, 0.84, 0.7, 1)
+polygon = PackedVector2Array(-22, -100, 22, -100, 22, -64, -22, -64)
+
+[node name="Knife" type="Polygon2D" parent="Char"]
+color = Color(0.88, 0.92, 0.98, 1)
+polygon = PackedVector2Array(28, -50, 90, -98, 100, -88, 38, -40)
+
+[node name="KnifeHilt" type="Polygon2D" parent="Char"]
+color = Color(0.45, 0.27, 0.12, 1)
+polygon = PackedVector2Array(20, -36, 32, -54, 44, -42, 32, -24)
+
+[node name="Title" type="Label" parent="."]
+layout_mode = 1
+offset_left = 60.0
+offset_top = 70.0
+offset_right = 700.0
+offset_bottom = 160.0
+text = "小刀一把冲到你家"
+theme_override_font_sizes/font_size = 64
+theme_override_colors/font_color = Color(1, 0.94, 0.62, 1)
+theme_override_colors/font_outline_color = Color(0.06, 0.07, 0.1, 1)
+theme_override_constants/outline_size = 8
+
+[node name="Subtitle" type="Label" parent="."]
+layout_mode = 1
+offset_left = 60.0
+offset_top = 160.0
+offset_right = 700.0
+offset_bottom = 200.0
+text = "小刀一把，来到你家，扒你裤衩，直接咔嚓！"
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(0.94, 0.94, 0.94, 1)
+theme_override_colors/font_outline_color = Color(0.06, 0.07, 0.1, 1)
+theme_override_constants/outline_size = 4
+
+[node name="V" type="VBoxContainer" parent="."]
+layout_mode = 1
+offset_left = 60.0
+offset_top = 240.0
+offset_right = 540.0
+offset_bottom = 600.0
+theme_override_constants/separation = 12
+
+[node name="Nick" type="LineEdit" parent="V"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+placeholder_text = "你的昵称"
+
+[node name="ServerRow" type="HBoxContainer" parent="V"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ServerLabel" type="Label" parent="V/ServerRow"]
+custom_minimum_size = Vector2(80, 0)
+text = "服务器"
+theme_override_colors/font_color = Color(0.78, 0.82, 0.88, 1)
+
+[node name="Server" type="LineEdit" parent="V/ServerRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CreateRow" type="HBoxContainer" parent="V"]
+layout_mode = 2
+
+[node name="Create" type="Button" parent="V/CreateRow"]
+custom_minimum_size = Vector2(220, 56)
+text = "创建房间"
+theme_override_font_sizes/font_size = 22
+
+[node name="JoinRow" type="HBoxContainer" parent="V"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Code" type="LineEdit" parent="V/JoinRow"]
+custom_minimum_size = Vector2(140, 56)
+placeholder_text = "房号 4字母"
+max_length = 4
+
+[node name="Join" type="Button" parent="V/JoinRow"]
+custom_minimum_size = Vector2(140, 56)
+text = "加入房间"
+theme_override_font_sizes/font_size = 22
+
+[node name="Status" type="Label" parent="V"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.82, 0.88, 1)
+text = "未连接"

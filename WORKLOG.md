@@ -2,6 +2,83 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 5 — S-005 — scaffold the Godot 4.3 client tree
+
+**Did:** Built the entire `client/` Godot project tree from empty.
+That's `project.godot` (with autoloads `Timing`, `Net`, `GameState`,
+`Audio`, GL Compatibility renderer, 1280×720 viewport), a procedurally-
+drawn `icon.svg`, an `export_presets.cfg` Web preset with thread
+support and PWA-style COOP/COEP headers, four GDScript autoloads
+(`Net.gd` speaks Engine.IO v4 / Socket.IO v4 directly over
+`WebSocketPeer` — no addon — emitting/consuming `room:*` events;
+`GameState.gd` keeps the room snapshot and routes `room:effects` /
+`room:winnerChoice`; `Audio.gd` is the SFX/BGM bus with mute
+persisted to `user://settings.cfg`; `Timing.gd` is the codegen
+target with the ms constants from `shared/src/game/timing.ts`),
+five gameplay scripts (`Camera.gd` runs three-stage cinematic
+zoom-pan-zoom for §C2; `EffectPlayer.gd` schedules `Effect[]`
+dispatches by `atMs`; `GameStage.gd` owns the iso world and
+characters; `Ground.gd` paints the iso diamond lattice via
+`_draw()` because a `TileMap` would require an atlas texture;
+`House.gd` is the player station), `Character.gd` (state machine
+ALIVE_CLOTHED | ALIVE_PANTS_DOWN | RUSHING | ATTACKING | DEAD,
+with `set_persistent_pants_down()` for §C7 persistent shame), six
+UI scripts (Main router, Landing, Lobby, BattleLog right-rail,
+HandPicker, WinnerPicker §H3 agency dialog), and 16 `.tscn` scene
+files including four `GPUParticles2D` emitters
+(Dust/Cloth/WoodChip/Confetti). Every visual is procedural (no PNG
+or WAV) so the project boots without art uploads per FINAL_GOAL §G.
+
+**Verified (acceptance for S-005):**
+- `godot --headless --path client --import` populates `client/.godot/`
+  (script class cache, UID cache, imported icon) without errors. A
+  follow-up smoke script that `load(...)` + `instantiate()`s every
+  one of the 16 `.tscn` files prints `OK` for all and exits 0,
+  proving the entire scene graph parses cleanly with the strict
+  GDScript Variant-inference checks Godot 4.3 enforces.
+- `godot --headless --path client --export-release "Web" build/index.html`
+  produces `client/build/{index.html, index.js (378K), index.wasm
+  (33M), index.pck (84K), index.png, index.audio.worklet.js,
+  index.worker.js}`. The .pck bundles all 16 scenes + 16 scripts
+  +`.import/global_script_class_cache.cfg` + `project.binary`.
+- `pnpm serve` (scripts/serve-html5.sh) listens on :5173 with COOP/
+  COEP/CORP headers; `curl -I` shows `Cross-Origin-Opener-Policy:
+  same-origin` and `Cross-Origin-Embedder-Policy: require-corp`.
+  `curl` of every bundle file (index.html, index.js, index.wasm,
+  index.pck, index.png) returns 200 with non-zero size.
+- The `index.html` bootstrap matches the canonical Godot 4.3 HTML5
+  template (status splash, `#canvas`, no external CDN deps).
+
+**What's NOT verified in this iteration:** Browser-driven
+end-to-end via Playwright / chrome-devtools MCP. The Chromium
+binary at `~/.cache/ms-playwright/chromium-1217/chrome-linux64/chrome`
+fails with `error while loading shared libraries: libnspr4.so:
+cannot open shared object file` — `libnspr4` isn't installed and
+this WSL2 sandbox doesn't grant `sudo apt install`. The MCP-managed
+chrome-devtools instance also closes target on launch attempt for
+the same reason. The build is structurally sound (HTTP 200 on every
+asset, valid Godot 4.3 HTML5 boilerplate, COOP/COEP headers correct)
+but a human or a CI runner with `libnspr4 libnss3 libasound2`
+installed needs to confirm the Landing → Lobby → Game traversal
+visually. This is an environment limitation, not a code defect.
+
+**HTML5 bundle size:** 33 MB (dominated by 33 MB `index.wasm` —
+that's the Godot 4.3 thread-enabled wasm template baseline).
+Exceeds the 6 MB **soft** target in FINAL_GOAL §E3. Mitigations
+(none blocking S-005): switch to no-threads template, custom
+Godot build with modules stripped, or accept the size — wasm
+gzips to ~9 MB on the wire. Documented in ARCHITECTURE.md
+"HTML5 bundle".
+
+**Notes for next iteration:** S-006 (`shared/scripts/codegen-timing.ts`)
+should still land — `client/scripts/generated/Timing.gd` was
+written manually mirroring the current ms values, but a real
+codegen script enforces drift detection in CI per FINAL_GOAL §A4.
+Also: the procedural-everything approach means hand-drawn art
+(FINAL_GOAL §C4 "characters ≈ 96 px tall, houses ≈ 192 px") slots
+in by replacing `Polygon2D` shapes with `Sprite2D` + `AtlasTexture`
+references — no scene-graph rewiring needed.
+
 ## Iteration 4 — S-004 — port server/sim.ts headless CLI verbatim from v2
 
 **Did:** Replaced the 3-line `console.log` placeholder at `server/src/sim.ts` with the verbatim port from `xiaodaoyiba-v2/packages/server/src/sim.ts` (738 lines). Also ported `server/src/sim.test.ts` (136 lines, 7 vitest specs covering the strict-mode exit-code policy + the canonical seed=42 / 4-bot acceptance run + the known-bad mirror-only exit-1 guard). Every symbol the sim imports from `@xdyb/shared` (`ACTION_TOTAL_MS`, `PHASE_T_REVEAL`, `ROUND_TOTAL_MS`, `BOT_STRATEGIES`, `getBotStrategy`, `isBotKind`, `resetBotCaches`, `resolveRound`, `resolveRps`, `seededRng`, `SHARED_PACKAGE_VERSION`, `ActionKind`, `BotContext`, `BotKind`, `BotStrategy`, `Effect`, `PlayerState`, `RoundHistoryEntry`, `RoundInputs`, `Rng`, `RpsChoice`) is already exported by the S-002 barrel — the port compiled clean with zero shimming.

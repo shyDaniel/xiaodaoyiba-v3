@@ -1,0 +1,48 @@
+[gd_scene load_steps=2 format=3 uid="uid://bxdyb_character_v1"]
+
+[ext_resource type="Script" path="res://scripts/characters/Character.gd" id="1_char"]
+
+[node name="Character" type="Node2D"]
+script = ExtResource("1_char")
+
+[node name="Body" type="Node2D" parent="."]
+
+[node name="Legs" type="Polygon2D" parent="Body"]
+color = Color(0.31, 0.21, 0.13, 1)
+polygon = PackedVector2Array(-14, 0, 14, 0, 14, 28, -14, 28)
+
+[node name="Torso" type="Polygon2D" parent="Body"]
+color = Color(0.4, 0.55, 0.85, 1)
+polygon = PackedVector2Array(-18, -32, 18, -32, 16, 0, -16, 0)
+
+[node name="Head" type="Polygon2D" parent="Body"]
+color = Color(0.95, 0.84, 0.7, 1)
+polygon = PackedVector2Array(-12, -54, 12, -54, 12, -32, -12, -32)
+
+[node name="ShameBriefs" type="Polygon2D" parent="Body"]
+visible = false
+color = Color(0.85, 0.18, 0.22, 1)
+polygon = PackedVector2Array(-15, 14, 15, 14, 15, 26, -15, 26)
+
+[node name="NameLabel" type="Label" parent="."]
+offset_left = -40.0
+offset_top = -82.0
+offset_right = 40.0
+offset_bottom = -62.0
+horizontal_alignment = 1
+text = "?"
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+
+[node name="ThrowGlyph" type="Label" parent="."]
+offset_left = -40.0
+offset_top = -136.0
+offset_right = 40.0
+offset_bottom = -86.0
+horizontal_alignment = 1
+text = "?"
+theme_override_font_sizes/font_size = 48
+theme_override_colors/font_color = Color(1, 0.95, 0.55, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6

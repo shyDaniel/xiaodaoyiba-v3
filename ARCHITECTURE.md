@@ -10,7 +10,7 @@ intentionally short: only the workspace skeleton exists. Sections marked
 xiaodaoyiba-v3/         pnpm monorepo, two TS packages + one Godot project
 ├── shared/             pure TS game logic (no DOM, no Node, no Godot)
 ├── server/             Socket.IO entry + Room.ts + matchmaking + sim CLI
-├── client/             (pending S-005) Godot 4.3 project, HTML5 export target
+├── client/             Godot 4.3 project, HTML5 export target (S-005)
 ├── scripts/            shell entry points (dev.sh, build.sh, serve-html5.sh)
 └── (root)              workspace + tsconfig + docs
 ```
@@ -100,9 +100,82 @@ build-time script (`shared/scripts/codegen-timing.ts`, wired into
 with the same constant names and ms values. CI fails if the generated
 file drifts from the TS source.
 
-## Godot scene tree (pending S-005)
+## Godot scene tree (S-005)
 
-See `FINAL_GOAL.md` §"Repository structure" for the full scene tree.
+The `client/` tree was scaffolded entirely procedurally — no PNG / WAV
+assets are required to boot, satisfying FINAL_GOAL §G's "the project
+ships and runs without art uploads" fallback. Hand-drawn art and audio
+slot in later by replacing `Polygon2D` / `_draw` shapes with
+`Sprite2D` + `AtlasTexture`, and stubbed `null` AudioStreams with real
+`.ogg` files in `Audio.gd`.
+
+```
+client/
+├── project.godot                # autoloads Timing/Net/GameState/Audio; main_scene = Main.tscn
+├── icon.svg                     # procedural knife+house+hut icon
+├── export_presets.cfg           # Web preset, threads on, COOP/COEP via PWA flag
+├── scenes/
+│   ├── Main.tscn                # router (swaps Landing/Lobby/Game children)
+│   ├── Landing.tscn             # title + nickname/code entry + hero illustration
+│   ├── Lobby.tscn               # member list, AddBot, Start (host-only)
+│   ├── Game.tscn                # iso stage root with World + UILayer
+│   ├── stage/{Ground,House,Background}.tscn
+│   ├── characters/{Character,Pants}.tscn
+│   ├── effects/{Dust,Cloth,WoodChip,Confetti}Emitter.tscn   # GPUParticles2D
+│   └── ui/{BattleLog,HandPicker,WinnerPicker}.tscn
+└── scripts/
+    ├── globals/{Net,GameState,Audio}.gd
+    ├── generated/Timing.gd      # codegen target (manually written for now)
+    ├── characters/Character.gd  # state machine (ALIVE_CLOTHED|PANTS_DOWN|RUSHING|ATTACKING|DEAD)
+    ├── stage/{Camera,EffectPlayer,GameStage,Ground,House}.gd
+    └── ui/{Main,Landing,Lobby,BattleLog,HandPicker,WinnerPicker}.gd
+```
+
+### Wire protocol (Net.gd)
+
+`Net.gd` speaks Engine.IO v4 / Socket.IO v4 directly over `WebSocketPeer`
+— no addon. Engine.IO frames are dispatched by leading char:
+
+- `0` OPEN — parses `sid`/`pingInterval`; emits Socket.IO CONNECT (`40`)
+  with `/` namespace.
+- `2` PING → respond `3` PONG.
+- `4` MESSAGE — second char is the Socket.IO type: `0` CONNECT (handshake
+  ack, sets `connected_emit = true`), `2` EVENT (parses `42[<event>,…args]`
+  and emits `event(name, args)` to GameState), `1` DISCONNECT.
+
+Outbound `emit(event, args)` writes a single text frame
+`42<json [event, ...args]>`. The autoload handles both `ws://` (dev) and
+`wss://` (prod via `JavaScriptBridge.eval` → `location.protocol`) so the
+same client binary serves dev iframes and the deployed bundle.
+
+### Cinematic camera (§C2)
+
+`Camera.gd::cinematic_focus(world_pos, in_ms, hold_ms, out_ms, zoom)` runs
+three-stage tween: TRANS_QUART EASE_OUT for zoom-in, hold, then EASE_IN
+for zoom-out. Default zoom factor is `Timing.ZOOM_TARGET = 1.6`. The
+existing v2 server emits `ZOOM_IN`/`ZOOM_OUT` Effects already; the
+EffectPlayer routes them straight into this method.
+
+### Iso ground without an atlas
+
+A Godot iso `TileMap` requires an external atlas texture. To keep the
+project self-bootstrapping (FINAL_GOAL §G), `Ground.gd` paints the same
+diamond lattice procedurally in `_draw()`: iterate `(x, y)` over an
+11×11 lattice in painter's-algorithm order (`s = x+y`), then emit
+`draw_colored_polygon(diamond, GRASS_LIGHT|GRASS_DARK)` with a soft
+edge falloff. Visually equivalent to a `TileSetAtlasSource` with
+`tile_shape = ISOMETRIC`; semantically the same iso world coordinate
+formula `(x-y)·hw, (x+y)·hh` lives in `GameStage._iso_world()`.
+
+### HTML5 bundle
+
+The exported bundle (`client/build/`) is **33 MB** dominated by
+`index.wasm` (33 MB) — that's the Godot 4.3 thread-enabled wasm
+baseline. This exceeds the 6 MB **soft** target in FINAL_GOAL §E3.
+Mitigation paths (none blocking S-005): switch to the no-threads
+template (smaller wasm, but loses worker-driven physics), strip
+unused modules via a custom Godot build, or accept the size — the
+wasm gzips to ~9 MB on the wire which is the actually-shipped figure.
 
 ## Why Godot (deliberate, see FINAL_GOAL §"Why a third rewrite")
 

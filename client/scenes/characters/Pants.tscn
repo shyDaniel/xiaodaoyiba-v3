@@ -1,0 +1,5 @@
+[gd_scene load_steps=1 format=3 uid="uid://bxdyb_pants_v1"]
+
+[node name="Pants" type="Polygon2D"]
+color = Color(0.85, 0.18, 0.22, 1)
+polygon = PackedVector2Array(-15, 14, 15, 14, 15, 26, -15, 26)

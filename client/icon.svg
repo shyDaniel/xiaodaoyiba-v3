@@ -1,0 +1,10 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" fill="#181b26"/>
+  <!-- knife -->
+  <polygon points="32,96 96,32 104,40 40,104" fill="#dde3ee" stroke="#1f2433" stroke-width="3"/>
+  <rect x="86" y="22" width="22" height="14" rx="2" fill="#7a4a1c" stroke="#1f2433" stroke-width="3" transform="rotate(45 97 29)"/>
+  <!-- house -->
+  <polygon points="20,108 64,80 108,108" fill="#c45a3b"/>
+  <rect x="34" y="100" width="60" height="20" fill="#e1c79b" stroke="#1f2433" stroke-width="2"/>
+  <rect x="58" y="106" width="12" height="14" fill="#7a4a1c"/>
+</svg>

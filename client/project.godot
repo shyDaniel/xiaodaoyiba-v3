@@ -1,0 +1,48 @@
+; Engine configuration file for xiaodaoyiba v3 — Godot 4.3 client.
+;
+; Three autoloads (Net / GameState / Audio) own the long-lived state.
+; Main.tscn is the bootstrap scene; it owns a state machine that swaps
+; between Landing → Lobby → Game scenes by parenting/freeing children
+; without unloading the autoloads.
+;
+; HTML5 export is the primary distribution target — see export_presets.cfg.
+; The COOP/COEP headers required for SharedArrayBuffer are set by
+; scripts/serve-html5.sh on the Node side.
+
+config_version=5
+
+[application]
+
+config/name="xiaodaoyiba"
+config/description="小刀一把冲到你家 — Godot 4 client"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[autoload]
+
+Timing="*res://scripts/generated/Timing.gd"
+Net="*res://scripts/globals/Net.gd"
+GameState="*res://scripts/globals/GameState.gd"
+Audio="*res://scripts/globals/Audio.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[input]
+
+confirm={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194309,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)]
+}
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
+environment/defaults/default_clear_color=Color(0.094, 0.106, 0.149, 1)

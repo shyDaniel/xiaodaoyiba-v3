@@ -1,0 +1,89 @@
+[gd_scene load_steps=3 format=3 uid="uid://bxdyb_lobby_v1"]
+
+[ext_resource type="Script" path="res://scripts/ui/Lobby.gd" id="1_lobby"]
+
+[sub_resource type="StyleBoxFlat" id="card2"]
+bg_color = Color(0.094, 0.106, 0.149, 0.94)
+border_color = Color(1.0, 0.84, 0.2, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+content_margin_left = 22.0
+content_margin_top = 22.0
+content_margin_right = 22.0
+content_margin_bottom = 22.0
+
+[node name="Lobby" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_lobby")
+
+[node name="Bg" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.13, 0.16, 0.22, 1)
+
+[node name="Card" type="PanelContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -260.0
+offset_right = 260.0
+offset_bottom = 260.0
+theme_override_styles/panel = SubResource("card2")
+
+[node name="V" type="VBoxContainer" parent="Card"]
+theme_override_constants/separation = 16
+
+[node name="Code" type="Label" parent="Card/V"]
+text = "房号 ----"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 32
+theme_override_colors/font_color = Color(1, 0.94, 0.62, 1)
+
+[node name="Hint" type="Label" parent="Card/V"]
+text = "把房号告诉朋友 · 加入后开始游戏"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.78, 0.82, 0.88, 1)
+
+[node name="Members" type="VBoxContainer" parent="Card/V"]
+
+[node name="Title" type="Label" parent="Card/V/Members"]
+text = "玩家"
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.94, 0.96, 0.99, 1)
+
+[node name="List" type="VBoxContainer" parent="Card/V/Members"]
+custom_minimum_size = Vector2(0, 200)
+
+[node name="Buttons" type="HBoxContainer" parent="Card/V"]
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="AddBot" type="Button" parent="Card/V/Buttons"]
+custom_minimum_size = Vector2(120, 48)
+text = "加机器人"
+theme_override_font_sizes/font_size = 16
+
+[node name="Start" type="Button" parent="Card/V/Buttons"]
+custom_minimum_size = Vector2(120, 48)
+text = "开始"
+theme_override_font_sizes/font_size = 16
+
+[node name="Leave" type="Button" parent="Card/V/Buttons"]
+custom_minimum_size = Vector2(120, 48)
+text = "离开"
+theme_override_font_sizes/font_size = 16

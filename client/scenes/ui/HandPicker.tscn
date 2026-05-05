@@ -1,0 +1,34 @@
+[gd_scene load_steps=2 format=3 uid="uid://bxdyb_handpicker_v1"]
+
+[ext_resource type="Script" path="res://scripts/ui/HandPicker.gd" id="1_hp"]
+
+[node name="HandPicker" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_hp")
+
+[node name="H" type="HBoxContainer" parent="."]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 480.0
+offset_bottom = 90.0
+theme_override_constants/separation = 16
+
+[node name="Rock" type="Button" parent="H"]
+custom_minimum_size = Vector2(140, 80)
+layout_mode = 2
+text = "✊ 石头"
+theme_override_font_sizes/font_size = 22
+
+[node name="Paper" type="Button" parent="H"]
+custom_minimum_size = Vector2(140, 80)
+layout_mode = 2
+text = "✋ 布"
+theme_override_font_sizes/font_size = 22
+
+[node name="Scissors" type="Button" parent="H"]
+custom_minimum_size = Vector2(140, 80)
+layout_mode = 2
+text = "✌ 剪刀"
+theme_override_font_sizes/font_size = 22
