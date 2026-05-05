@@ -65,6 +65,12 @@ func _on_net_event(name: String, args: Array) -> void:
 			var p: Dictionary = args[0] if args.size() > 0 else {}
 			room_code = String(p.get("code", ""))
 			snapshot = p.get("snapshot", {})
+			# S-218: server's room:created reply is per-socket (the
+			# creator's). hostId in the snapshot IS me, so capture it as
+			# my_player_id. Without this, the Lobby's youAreHost gating
+			# never returns true and Add Bot / Start are forever disabled.
+			if snapshot.has("hostId"):
+				my_player_id = str(snapshot["hostId"])
 			_set_my_player_id_from_snapshot()
 			joined_room.emit(room_code)
 			snapshot_changed.emit(snapshot)
@@ -72,6 +78,14 @@ func _on_net_event(name: String, args: Array) -> void:
 			var pj: Dictionary = args[0] if args.size() > 0 else {}
 			room_code = String(pj.get("code", ""))
 			snapshot = pj.get("snapshot", {})
+			# S-218: server's room:joined reply is per-socket. The just-
+			# joined human is the last entry in members[] (server appends
+			# in addHuman). Without this we have no way to learn our own
+			# player id, so per-player UI gating (host marker, "your
+			# turn") breaks.
+			var pl: Array = snapshot.get("players", [])
+			if pl.size() > 0:
+				my_player_id = str((pl[pl.size() - 1] as Dictionary).get("id", ""))
 			_set_my_player_id_from_snapshot()
 			joined_room.emit(room_code)
 			snapshot_changed.emit(snapshot)

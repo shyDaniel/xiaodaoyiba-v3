@@ -174,8 +174,10 @@ func _send_key(lobby: Node, keycode: int) -> void:
 	ev.echo = false
 	# Call the handler directly. Going through Input.parse_input_event
 	# would require the test viewport to have focus, which adds flake;
-	# direct dispatch is the contract we're verifying.
-	lobby._unhandled_key_input(ev)
+	# direct dispatch is the contract we're verifying. (S-218: handler
+	# moved from _unhandled_key_input to _input so it fires before
+	# Button focus consumes the event under WASM canvas focus.)
+	lobby._input(ev)
 
 
 func _saw_emit(net: Node, name: String) -> bool:

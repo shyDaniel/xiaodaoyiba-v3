@@ -2,6 +2,60 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 40 — S-218 — Live lobby keybinds via JS bridge (canvas-focus bypass)
+
+**Bug.** S-205 wired A/S/L keybinds in `Lobby.gd::_unhandled_key_input`
+to unblock headless chromium drivers that can't reliably synthesise
+mouse clicks against Godot Buttons (focus + Button.pressed swallows
+the event under chrome-headless-shell + swiftshader). The handler
+worked under the `godot --headless` smoke test (which calls
+`lobby._unhandled_key_input(ev)` directly) but DID NOT fire in the
+live HTML5 build at `http://localhost:5173/`: 0 `room:addBot` WS
+frames after `page.keyboard.press("KeyA")` ×3, lobby stuck at 1
+player, Start button stayed greyed. Two layered failures:
+  1. `page.keyboard.press()` targets `document.activeElement`, which
+     is `<body>` — not the Godot canvas — unless the canvas was
+     explicitly `.focus()`'d AND a click had landed on it AND the
+     emscripten layer had re-pumped focus state. Even when the
+     canvas IS focused, `_unhandled_key_input` only fires AFTER the
+     focused Button consumes the event as a "shortcut probe".
+  2. The Lobby's host-gating `_render` read `snap.youAreHost`, but
+     the TS server only broadcasts a room-wide snapshot (no
+     per-socket fields). `_is_host` was permanently `false`, so
+     even when the bridge worked, `add_bot()` no-op'd.
+
+**Fix.** Three concentric layers, all in `client/scripts/ui/Lobby.gd`:
+
+  - `_unhandled_key_input` → `_input` so we see the keys before the
+    focused AddBot Button consumes them. LineEdit/TextEdit focus
+    check stays so future text inputs can still type letters.
+  - `_install_js_bridge()` exposes `window.xdyb_lobby_addBot()` /
+    `start()` / `leave()` via `JavaScriptBridge.create_callback`,
+    plus a document-level `keydown` listener (in capture phase)
+    that routes A/S/L → bridge regardless of canvas focus. Held
+    callback refs (`_js_addbot_cb` etc) prevent JS-weak-ref GC.
+  - `_render` falls back to `hostId == GameState.my_player_id` when
+    `youAreHost` is absent — which is the actual server contract.
+    `GameState.gd` now captures `my_player_id` on `room:created`
+    (= `snapshot.hostId`) and `room:joined` (= last entry in
+    `players[]` since the server appends).
+
+`Landing.gd` got the parallel bridge (`xdyb_landing_create/join/setNick`)
+so drivers can dispatch Create Room without canvas-pixel guessing.
+
+**Verify.** `scripts/validate-lobby-keybinds.mjs` drives a fresh
+chromium (chrome-headless-shell + swiftshader) at localhost:5173,
+calls `xdyb_landing_create()`, presses `KeyA` ×3 then `KeyS` via
+`page.keyboard.press`, captures WebSocket frames. Live result:
+6 `room:addBot` TX frames (keyboard.press triggers BOTH the
+document shim AND Godot's WASM canvas key handler — both routes
+work), lobby snapshot reaches 6 players (host + 5 bots: counter,
+random, iron, mirror, counter#2), `room:start` TX fires, server
+transitions `phase=PLAYING`. `docs/screenshots/lobby-after-keys-a3x.png`
+shows the rendered lobby with host star marker; `lobby-after-key-s.png`
+shows the post-Start state. `pnpm test` 90/90 green; smoke test
+updated to call `_input` (was `_unhandled_key_input`).
+
 ## Iteration 39 — S-212 — Live Landing iso preview (SpriteAtlas pipeline)
 
 **Bug.** `screenshots/live-landing.png` (captured by

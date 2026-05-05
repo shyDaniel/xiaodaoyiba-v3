@@ -17,6 +17,15 @@ extends Control
 @onready var _status: Label = $V/Status
 @onready var _server_input: LineEdit = $V/ServerRow/Server
 
+# Held callback refs — JavaScriptBridge.create_callback returns
+# JavaScriptObjects that JS holds weak refs to; if Godot drops the
+# Callable they get GC'd. Keep them alive for the Landing's lifetime.
+# (S-218: parallels the Lobby bridge so headless drivers can drive
+# Create Room / Join Room without canvas-coord guessing.)
+var _js_create_cb = null
+var _js_join_cb = null
+var _js_setnick_cb = null
+
 func _ready() -> void:
 	_nick_input.text = _gen_nick()
 	_create_btn.pressed.connect(_on_create)
@@ -27,6 +36,65 @@ func _ready() -> void:
 	_server_input.placeholder_text = "default ws://localhost:3000"
 	_status.text = "Disconnected - enter a nickname, then Create Room or Join Room"
 	Audio.cross_fade_bgm("lobby")
+	_install_js_bridge()
+
+func _exit_tree() -> void:
+	_uninstall_js_bridge()
+
+# --- JS bridge (S-218) -----------------------------------------------------
+#
+# Web-only. Exposes window.xdyb_landing_create({nickname?})  /
+# xdyb_landing_join({code, nickname?}) / xdyb_landing_setNick(name)
+# so headless chromium drivers can drive the title screen without
+# guessing canvas-pixel coordinates for the Create/Join buttons.
+func _install_js_bridge() -> void:
+	if not (OS.has_feature("web") and Engine.has_singleton("JavaScriptBridge")):
+		return
+	_js_create_cb = JavaScriptBridge.create_callback(_js_create)
+	_js_join_cb = JavaScriptBridge.create_callback(_js_join)
+	_js_setnick_cb = JavaScriptBridge.create_callback(_js_setnick)
+	var window = JavaScriptBridge.get_interface("window")
+	if window == null:
+		return
+	window.xdyb_landing_create = _js_create_cb
+	window.xdyb_landing_join = _js_join_cb
+	window.xdyb_landing_setNick = _js_setnick_cb
+
+func _uninstall_js_bridge() -> void:
+	if not (OS.has_feature("web") and Engine.has_singleton("JavaScriptBridge")):
+		return
+	JavaScriptBridge.eval("""
+		(function () {
+			window.xdyb_landing_create = null;
+			window.xdyb_landing_join = null;
+			window.xdyb_landing_setNick = null;
+		})();
+	""", true)
+	_js_create_cb = null
+	_js_join_cb = null
+	_js_setnick_cb = null
+
+func _js_create(_args) -> void:
+	# Use the already-populated _nick_input.text (procedural _gen_nick
+	# always produces a non-empty string in _ready). Drivers that want
+	# a specific nickname can call xdyb_landing_setNick("Foo") first.
+	_on_create()
+
+func _js_join(_args) -> void:
+	# Drivers must call xdyb_landing_setNick / set the room code via
+	# DOM-injected text first OR use this only when the inputs are
+	# already populated. Keeping this thin avoids JavaScriptObject ↔
+	# Godot type-coercion edge cases that have bitten previous web
+	# bridges.
+	_on_join()
+
+func _js_setnick(args) -> void:
+	# JavaScript primitives are coerced into native Godot types per
+	# the JavaScriptBridge docs; arr[0] should arrive as a String.
+	if typeof(args) == TYPE_ARRAY and (args as Array).size() > 0:
+		var v = args[0]
+		if typeof(v) == TYPE_STRING:
+			_nick_input.text = v
 
 func _gen_nick() -> String:
 	# Latin nick pool keeps every visible label legible in browsers without
