@@ -1,22 +1,24 @@
-[gd_scene load_steps=3 format=3 uid="uid://bxdyb_battlelog_v1"]
+[gd_scene load_steps=4 format=3 uid="uid://bxdyb_battlelog_v1"]
 
 [ext_resource type="Script" path="res://scripts/ui/BattleLog.gd" id="1_log"]
+[ext_resource type="Texture2D" path="res://assets/sprites/ui/wood_panel_9slice.png" id="2_wood"]
 
-[sub_resource type="StyleBoxFlat" id="bg_log"]
-bg_color = Color(0.067, 0.078, 0.106, 0.92)
-border_color = Color(0.18, 0.22, 0.3, 1)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
-content_margin_left = 8.0
-content_margin_top = 8.0
-content_margin_right = 8.0
-content_margin_bottom = 8.0
+; S-370 §H2.4 — replace flat-dark StyleBoxFlat with carved-wood
+; StyleBoxTexture so the BattleLog reads as a Stardew-quality painted
+; ribbon, not a default Godot dark-rounded-rectangle. The 16-px texture
+; margins match wood_panel_9slice.png's 16-px carved frame, so corners
+; never stretch and the rim stays crisp at any panel size.
+[sub_resource type="StyleBoxTexture" id="bg_log"]
+texture = ExtResource("2_wood")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+content_margin_left = 14.0
+content_margin_top = 12.0
+content_margin_right = 14.0
+content_margin_bottom = 12.0
+modulate_color = Color(1, 1, 1, 0.97)
 
 [node name="BattleLog" type="PanelContainer"]
 custom_minimum_size = Vector2(220, 360)
@@ -29,8 +31,10 @@ layout_mode = 2
 [node name="Title" type="Label" parent="V"]
 layout_mode = 2
 text = "战报"
-theme_override_font_sizes/font_size = 16
-theme_override_colors/font_color = Color(0.94, 0.96, 0.99, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(1.0, 0.91, 0.38, 1)
+theme_override_colors/font_outline_color = Color(0.24, 0.15, 0.19, 1)
+theme_override_constants/outline_size = 4
 
 [node name="Scroll" type="ScrollContainer" parent="V"]
 layout_mode = 2

@@ -1,7 +1,49 @@
-[gd_scene load_steps=3 format=3 uid="uid://bxdyb_handpicker_v1"]
+[gd_scene load_steps=6 format=3 uid="uid://bxdyb_handpicker_v1"]
 
 [ext_resource type="Script" path="res://scripts/ui/HandPicker.gd" id="1_hp"]
 [ext_resource type="FontFile" uid="uid://c8suekfail418" path="res://assets/fonts/NotoColorEmoji.ttf" id="2_emoji"]
+[ext_resource type="Texture2D" path="res://assets/sprites/ui/wood_button_9slice.png" id="3_wood"]
+[ext_resource type="Texture2D" path="res://assets/sprites/ui/wood_button_pressed_9slice.png" id="4_wood_pressed"]
+
+; S-370 §H2.4 — Stardew-quality carved-wood button styling. The default
+; Godot Button look is a flat dark-rounded-rectangle that breaks the
+; rustic painterly read. We swap normal/hover/pressed/focus styles for a
+; 9-slice StyleBoxTexture using wood_button_9slice.png so each button
+; reads as a hand-carved wooden tile. hover modulates with a warm tint;
+; pressed swaps to the inverted-carve PNG so the button visibly indents.
+[sub_resource type="StyleBoxTexture" id="btn_normal"]
+texture = ExtResource("3_wood")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxTexture" id="btn_hover"]
+texture = ExtResource("3_wood")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+modulate_color = Color(1.16, 1.10, 0.94, 1)
+
+[sub_resource type="StyleBoxTexture" id="btn_pressed"]
+texture = ExtResource("4_wood_pressed")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+content_margin_left = 12.0
+content_margin_top = 10.0
+content_margin_right = 12.0
+content_margin_bottom = 6.0
 
 [node name="HandPicker" type="Control"]
 layout_mode = 3
@@ -22,6 +64,10 @@ layout_mode = 2
 text = "✊"
 theme_override_fonts/font = ExtResource("2_emoji")
 theme_override_font_sizes/font_size = 64
+theme_override_styles/normal = SubResource("btn_normal")
+theme_override_styles/hover = SubResource("btn_hover")
+theme_override_styles/pressed = SubResource("btn_pressed")
+theme_override_styles/focus = SubResource("btn_hover")
 
 [node name="RockLabel" type="Label" parent="H/Rock"]
 anchors_preset = 7
@@ -36,7 +82,9 @@ offset_bottom = -2.0
 horizontal_alignment = 1
 text = "石头"
 theme_override_font_sizes/font_size = 16
-theme_override_colors/font_color = Color(0.92, 0.92, 0.92, 1)
+theme_override_colors/font_color = Color(1.0, 0.94, 0.62, 1)
+theme_override_colors/font_outline_color = Color(0.18, 0.10, 0.07, 1)
+theme_override_constants/outline_size = 3
 
 [node name="Paper" type="Button" parent="H"]
 custom_minimum_size = Vector2(180, 100)
@@ -44,6 +92,10 @@ layout_mode = 2
 text = "✋"
 theme_override_fonts/font = ExtResource("2_emoji")
 theme_override_font_sizes/font_size = 64
+theme_override_styles/normal = SubResource("btn_normal")
+theme_override_styles/hover = SubResource("btn_hover")
+theme_override_styles/pressed = SubResource("btn_pressed")
+theme_override_styles/focus = SubResource("btn_hover")
 
 [node name="PaperLabel" type="Label" parent="H/Paper"]
 anchors_preset = 7
@@ -58,7 +110,9 @@ offset_bottom = -2.0
 horizontal_alignment = 1
 text = "布"
 theme_override_font_sizes/font_size = 16
-theme_override_colors/font_color = Color(0.92, 0.92, 0.92, 1)
+theme_override_colors/font_color = Color(1.0, 0.94, 0.62, 1)
+theme_override_colors/font_outline_color = Color(0.18, 0.10, 0.07, 1)
+theme_override_constants/outline_size = 3
 
 [node name="Scissors" type="Button" parent="H"]
 custom_minimum_size = Vector2(180, 100)
@@ -66,6 +120,10 @@ layout_mode = 2
 text = "✌"
 theme_override_fonts/font = ExtResource("2_emoji")
 theme_override_font_sizes/font_size = 64
+theme_override_styles/normal = SubResource("btn_normal")
+theme_override_styles/hover = SubResource("btn_hover")
+theme_override_styles/pressed = SubResource("btn_pressed")
+theme_override_styles/focus = SubResource("btn_hover")
 
 [node name="ScissorsLabel" type="Label" parent="H/Scissors"]
 anchors_preset = 7
@@ -80,4 +138,6 @@ offset_bottom = -2.0
 horizontal_alignment = 1
 text = "剪刀"
 theme_override_font_sizes/font_size = 16
-theme_override_colors/font_color = Color(0.92, 0.92, 0.92, 1)
+theme_override_colors/font_color = Color(1.0, 0.94, 0.62, 1)
+theme_override_colors/font_outline_color = Color(0.18, 0.10, 0.07, 1)
+theme_override_constants/outline_size = 3

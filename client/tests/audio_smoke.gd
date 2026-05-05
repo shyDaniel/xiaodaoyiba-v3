@@ -9,7 +9,9 @@
 
 extends SceneTree
 
-const SFX_NAMES := ["tap", "reveal", "pull", "chop", "dodge", "thud", "victory", "defeat"]
+# S-370 §H2.7 — hover + click added for UI button feedback. Must stay
+# in sync with Audio.gd:SFX_NAMES and scripts/codegen-audio.mjs.
+const SFX_NAMES := ["tap", "reveal", "pull", "chop", "dodge", "thud", "victory", "defeat", "hover", "click"]
 const BGM_NAMES := ["lobby", "battle", "victory"]
 
 func _init() -> void:
@@ -51,7 +53,7 @@ func _init() -> void:
 			failures.append("BGM not looping: %s" % path)
 
 	if failures.is_empty():
-		print("audio_smoke: PASS (8 sfx + 3 bgm)")
+		print("audio_smoke: PASS (%d sfx + %d bgm)" % [SFX_NAMES.size(), BGM_NAMES.size()])
 		quit(0)
 	else:
 		for f in failures:

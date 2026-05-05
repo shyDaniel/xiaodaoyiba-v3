@@ -22,6 +22,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 Timing="*res://scripts/generated/Timing.gd"
+Palette="*res://scripts/globals/Palette.gd"
 Net="*res://scripts/globals/Net.gd"
 GameState="*res://scripts/globals/GameState.gd"
 Audio="*res://scripts/globals/Audio.gd"

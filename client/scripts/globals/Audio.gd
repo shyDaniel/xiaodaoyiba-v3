@@ -12,8 +12,10 @@
 extends Node
 
 const SETTINGS_PATH := "user://settings.cfg"
-const SFX_NAMES := ["tap", "reveal", "pull", "chop", "dodge", "thud", "victory", "defeat"]
+const SFX_NAMES := ["tap", "reveal", "pull", "chop", "dodge", "thud", "victory", "defeat", "hover", "click"]
 const BGM_NAMES := ["lobby", "battle", "victory"]
+# S-370 §H2.7 — buttons that have been auto-wired (so we don't double-bind).
+var _wired_buttons: Dictionary = {}
 
 var muted: bool = false
 var _sfx_players: Dictionary = {}      # name → AudioStreamPlayer
@@ -104,3 +106,34 @@ func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("audio", "muted", muted)
 	cfg.save(SETTINGS_PATH)
+
+# S-370 §H2.7 — auto-wire hover.wav on mouse_entered + click.wav on pressed
+# for every Button under `root`. Idempotent: a button only gets bound once
+# even across multiple wire_tree calls. Stardew-style tactile UI feedback.
+func wire_tree(root: Node) -> void:
+	if root == null:
+		return
+	for n in _walk(root):
+		if n is BaseButton:
+			wire_button(n as BaseButton)
+
+func wire_button(b: BaseButton) -> void:
+	if b == null or _wired_buttons.has(b.get_instance_id()):
+		return
+	_wired_buttons[b.get_instance_id()] = true
+	if not b.mouse_entered.is_connected(_on_btn_hover):
+		b.mouse_entered.connect(_on_btn_hover)
+	if not b.pressed.is_connected(_on_btn_click):
+		b.pressed.connect(_on_btn_click)
+
+func _on_btn_hover() -> void:
+	play_sfx("hover")
+
+func _on_btn_click() -> void:
+	play_sfx("click")
+
+func _walk(n: Node) -> Array:
+	var out: Array = [n]
+	for c in n.get_children():
+		out.append_array(_walk(c))
+	return out

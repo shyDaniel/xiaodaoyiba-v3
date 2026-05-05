@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://bxdyb_game_v1"]
+[gd_scene load_steps=10 format=3 uid="uid://bxdyb_game_v1"]
 
 [ext_resource type="Script" path="res://scripts/stage/GameStage.gd" id="1_stage"]
 [ext_resource type="Script" path="res://scripts/stage/Camera.gd" id="2_cam"]
@@ -8,17 +8,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/BattleLog.tscn" id="6_log"]
 [ext_resource type="PackedScene" path="res://scenes/ui/HandPicker.tscn" id="7_hp"]
 [ext_resource type="PackedScene" path="res://scenes/ui/WinnerPicker.tscn" id="8_wp"]
-
-[sub_resource type="StyleBoxFlat" id="phase_bg"]
-bg_color = Color(0.06, 0.08, 0.11, 0.86)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
-content_margin_left = 14.0
-content_margin_top = 6.0
-content_margin_right = 14.0
-content_margin_bottom = 6.0
+[ext_resource type="PackedScene" path="res://scenes/ui/PhaseBanner.tscn" id="9_pb"]
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_stage")
@@ -60,23 +50,11 @@ offset_top = 600.0
 
 [node name="WinnerPicker" parent="UILayer" instance=ExtResource("8_wp")]
 
-[node name="PhaseBannerBg" type="Panel" parent="UILayer"]
+[node name="PhaseBanner" parent="UILayer" instance=ExtResource("9_pb")]
 offset_left = 30.0
 offset_top = 20.0
 offset_right = 360.0
 offset_bottom = 60.0
-theme_override_styles/panel = SubResource("phase_bg")
-
-[node name="PhaseBanner" type="Label" parent="UILayer"]
-offset_left = 30.0
-offset_top = 20.0
-offset_right = 360.0
-offset_bottom = 60.0
-text = ""
-horizontal_alignment = 1
-vertical_alignment = 1
-theme_override_font_sizes/font_size = 18
-theme_override_colors/font_color = Color(1, 0.94, 0.62, 1)
 
 [node name="TieBanner" type="Label" parent="UILayer"]
 offset_left = 320.0

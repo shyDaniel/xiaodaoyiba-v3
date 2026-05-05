@@ -36,6 +36,12 @@ func _show(packed: PackedScene) -> void:
 		_current = null
 	_current = packed.instantiate()
 	_slot.add_child(_current)
+	# S-370 §H2.7 — every Button under the new scene gets hover.wav on
+	# mouse_entered and click.wav on pressed. Walks the tree once after
+	# instantiation; subsequent dynamic Buttons (e.g. WinnerPicker
+	# spawn) call Audio.wire_tree(self) themselves.
+	if has_node("/root/Audio"):
+		get_node("/root/Audio").wire_tree(_current)
 
 func _on_joined(_code: String) -> void:
 	_show(LOBBY)

@@ -1,0 +1,50 @@
+; palette.tres — Endesga 32 palette as a Godot Resource (S-370 §H2.6).
+;
+; Source: https://lospec.com/palette-list/endesga-32  (CC0, by Endesga)
+; 32-color cohesive warm-leaning palette used as the single source of truth
+; for every programmatic color in the project. SpriteAtlas, Ground, House,
+; Character, BattleLog, HandPicker, PhaseBanner all sample from here via
+; client/scripts/globals/Palette.gd.
+;
+; Indices (0-based):
+;   0  #be4a2f  brick red
+;   1  #d77643  rust orange
+;   2  #ead4aa  cream
+;   3  #e4a672  peach (skin highlight)
+;   4  #b86f50  tan (skin shadow)
+;   5  #733e39  dark brown (hair)
+;   6  #3e2731  espresso (outline)
+;   7  #a22633  blood red (briefs)
+;   8  #e43b44  bright red (briefs hi)
+;   9  #f77622  pumpkin
+;   10 #feae34  amber
+;   11 #fee761  buttercup
+;   12 #63c74d  leaf green
+;   13 #3e8948  grass green
+;   14 #265c42  pine green
+;   15 #193c3e  dark teal
+;   16 #124e89  navy blue
+;   17 #0099db  sky blue
+;   18 #2ce8f5  cyan
+;   19 #ffffff  white
+;   20 #c0cbdc  pale steel
+;   21 #8b9bb4  steel blue
+;   22 #5a6988  slate
+;   23 #3a4466  deep slate
+;   24 #262b44  midnight blue
+;   25 #181425  obsidian (deep outline)
+;   26 #ff0044  pink-red (alarm)
+;   27 #68386c  plum
+;   28 #b55088  rose pink
+;   29 #f6757a  salmon
+;   30 #e8b796  shell
+;   31 #c28569  brick brown
+
+[gd_resource type="Resource" format=3]
+
+[resource]
+resource_name = "endesga_32"
+metadata/name = "Endesga 32"
+metadata/license = "CC0"
+metadata/source = "https://lospec.com/palette-list/endesga-32"
+metadata/colors = PackedColorArray(0.745, 0.290, 0.184, 1, 0.843, 0.463, 0.263, 1, 0.918, 0.831, 0.667, 1, 0.894, 0.651, 0.447, 1, 0.722, 0.435, 0.314, 1, 0.451, 0.243, 0.224, 1, 0.243, 0.153, 0.192, 1, 0.635, 0.149, 0.200, 1, 0.894, 0.231, 0.267, 1, 0.969, 0.463, 0.133, 1, 0.996, 0.682, 0.204, 1, 0.996, 0.906, 0.380, 1, 0.388, 0.780, 0.302, 1, 0.243, 0.537, 0.282, 1, 0.149, 0.361, 0.259, 1, 0.098, 0.235, 0.243, 1, 0.071, 0.306, 0.537, 1, 0.000, 0.600, 0.859, 1, 0.173, 0.910, 0.961, 1, 1.000, 1.000, 1.000, 1, 0.753, 0.796, 0.863, 1, 0.545, 0.608, 0.706, 1, 0.353, 0.412, 0.533, 1, 0.227, 0.267, 0.400, 1, 0.149, 0.169, 0.267, 1, 0.094, 0.078, 0.145, 1, 1.000, 0.000, 0.267, 1, 0.408, 0.220, 0.424, 1, 0.710, 0.314, 0.533, 1, 0.965, 0.459, 0.478, 1, 0.910, 0.718, 0.588, 1, 0.761, 0.522, 0.412, 1)

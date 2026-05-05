@@ -1,4 +1,6 @@
-[gd_scene load_steps=1 format=3 uid="uid://bxdyb_background_v1"]
+[gd_scene load_steps=2 format=3 uid="uid://bxdyb_background_v1"]
+
+[ext_resource type="Script" path="res://scripts/stage/Clouds.gd" id="1_clouds"]
 
 [node name="Background" type="ParallaxBackground"]
 
@@ -42,3 +44,31 @@ motion_scale = Vector2(0.5, 0.2)
 [node name="HillPoly" type="Polygon2D" parent="Hills"]
 color = Color(0.22, 0.40, 0.28, 1)
 polygon = PackedVector2Array(-2000, 380, -1600, 320, -1200, 350, -800, 310, -400, 350, 0, 305, 400, 340, 800, 310, 1200, 345, 1600, 315, 2000, 380)
+
+; S-370 §H2.5 — slow-drifting cloud layer above the mountains. Three
+; lumpy soft-white polygons pan left→right; Clouds.gd wraps each back
+; to the left edge so the loop is seamless. Painterly blob shapes (no
+; image dep) keep the surface coherent with the rest of §H art.
+[node name="CloudLayer" type="ParallaxLayer" parent="."]
+motion_scale = Vector2(0.08, 0.02)
+
+[node name="Clouds" type="Node2D" parent="CloudLayer"]
+script = ExtResource("1_clouds")
+
+[node name="Cloud1" type="Polygon2D" parent="CloudLayer/Clouds"]
+position = Vector2(-1400, 80)
+color = Color(1.0, 1.0, 1.0, 0.78)
+polygon = PackedVector2Array(0, 0, 22, -16, 60, -22, 96, -16, 130, -20, 158, -8, 152, 14, 116, 22, 70, 26, 32, 24, 8, 16)
+metadata/rate = 1.0
+
+[node name="Cloud2" type="Polygon2D" parent="CloudLayer/Clouds"]
+position = Vector2(0, 40)
+color = Color(1.0, 1.0, 1.0, 0.62)
+polygon = PackedVector2Array(0, 0, 30, -22, 80, -28, 130, -18, 174, -22, 200, -6, 188, 16, 140, 22, 90, 28, 38, 22, 10, 14)
+metadata/rate = 0.7
+
+[node name="Cloud3" type="Polygon2D" parent="CloudLayer/Clouds"]
+position = Vector2(1100, 110)
+color = Color(1.0, 1.0, 1.0, 0.85)
+polygon = PackedVector2Array(0, 0, 18, -14, 50, -18, 84, -10, 110, -14, 130, -2, 122, 14, 88, 18, 50, 20, 22, 16, 4, 10)
+metadata/rate = 1.3

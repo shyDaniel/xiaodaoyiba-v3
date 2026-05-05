@@ -43,12 +43,34 @@ const CN_TO_LATIN_VERB := {
 @onready var _scroll: ScrollContainer = $V/Scroll
 @onready var _rows: VBoxContainer = $V/Scroll/Rows
 
+# S-370 §H2.4 — parchment 9-slice for the row ribbon. Loaded once at
+# script-load and reused per row.
+const _PARCHMENT_TEX := preload("res://assets/sprites/ui/parchment_9slice.png")
+
+static func _make_parchment_box() -> StyleBoxTexture:
+	var sb := StyleBoxTexture.new()
+	sb.texture = _PARCHMENT_TEX
+	sb.texture_margin_left = 16.0
+	sb.texture_margin_top = 16.0
+	sb.texture_margin_right = 16.0
+	sb.texture_margin_bottom = 16.0
+	sb.content_margin_left = 8.0
+	sb.content_margin_top = 4.0
+	sb.content_margin_right = 8.0
+	sb.content_margin_bottom = 4.0
+	return sb
+
 func add_row(round_n: int, phase: String, text: String, verb: String) -> void:
+	# S-370 §H2.4 — wrap each entry in a parchment PanelContainer so it
+	# reads as a hand-painted ribbon instead of a flat colored row.
+	var ribbon := PanelContainer.new()
+	ribbon.add_theme_stylebox_override("panel", _make_parchment_box())
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	var stamp := Label.new()
 	stamp.text = "R%d.%s" % [round_n, phase]
-	stamp.add_theme_color_override("font_color", Color(0.62, 0.66, 0.72, 1))
+	# Faded ink-brown for the timestamp on parchment.
+	stamp.add_theme_color_override("font_color", Color(0.36, 0.27, 0.22, 1))
 	stamp.add_theme_font_size_override("font_size", 12)
 	row.add_child(stamp)
 	if verb in VERB_COLORS:
@@ -66,14 +88,16 @@ func add_row(round_n: int, phase: String, text: String, verb: String) -> void:
 	msg.text = text
 	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	msg.add_theme_font_size_override("font_size", 13)
-	msg.add_theme_color_override("font_color", Color(0.94, 0.95, 0.98, 1))
+	# Dark ink against parchment.
+	msg.add_theme_color_override("font_color", Color(0.18, 0.13, 0.10, 1))
 	msg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(msg)
-	_rows.add_child(row)
+	ribbon.add_child(row)
+	_rows.add_child(ribbon)
 	# Glow-on-arrival per §C8.
-	row.modulate = Color(1.6, 1.6, 1.6, 0)
+	ribbon.modulate = Color(1.6, 1.6, 1.6, 0)
 	var tw := create_tween()
-	tw.tween_property(row, "modulate", Color(1, 1, 1, 1), 0.3)
+	tw.tween_property(ribbon, "modulate", Color(1, 1, 1, 1), 0.3)
 	# Auto-scroll.
 	await get_tree().process_frame
 	_scroll.scroll_vertical = int(_rows.size.y)

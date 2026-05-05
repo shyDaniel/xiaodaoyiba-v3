@@ -336,6 +336,19 @@ const SFX_PRESETS = {
     { params: [1, 0, 392, 0.02, 0.1, 0.2, 1, 1.3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.7, 0.04] },
     { delayMs: 180, params: [1, 0, 311, 0.02, 0.16, 0.3, 1, 1.3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.7, 0.06] },
   ],
+  // S-370 §H2.7 — Hover button: soft Stardew-style wood-tap. Brief
+  // (~40ms), low volume, triangle wave so it doesn't intrude when the
+  // cursor sweeps across menus.
+  hover: [
+    { params: [0.45, 0.05, 880, 0.005, 0.02, 0.04, 1, 1.2, -1, 0, 0, 0, 0, 0.05, 0, 0.1, 0, 0.6, 0.02] },
+  ],
+  // S-370 §H2.7 — Click button: layered wood-knock + paper-rustle so a
+  // press has both impact (low thud) and texture (noisy scrape). Deeper
+  // and slightly longer than hover so the player feels the press land.
+  click: [
+    { params: [0.85, 0.05, 220, 0.005, 0.04, 0.10, 3, 0.9, -2, 0, 0, 0, 0, 0.4, 0, 0.3, 0, 0.7, 0.04] },
+    { delayMs: 12, params: [0.55, 0.4, 1400, 0, 0.02, 0.06, 4, 1.1, -10, 0, 0, 0, 0, 1.6, 0, 0.5, 0, 0.5, 0.03] },
+  ],
 };
 
 // ── BGM tracks (3 variants — FINAL_GOAL §D2) ─────────────────────────────
