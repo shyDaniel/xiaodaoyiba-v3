@@ -70,46 +70,39 @@ const LOG_ROWS := [
 
 func _ready() -> void:
 	# Defer one frame so the SpriteAtlas autoload has finished its
-	# _ready() texture-build pass before we instance Sprite2D nodes
-	# pointed at its ImageTextures.
+	# _ready() texture-load pass before we instance Sprite2D nodes
+	# pointed at its loaded composites.
 	await get_tree().process_frame
+	_build_ground_lattice()
 	_build_houses_and_characters()
 	_build_battle_log()
-	queue_redraw()
 
-# ---------- iso ground lattice (custom _draw) ----------
-
-func _draw() -> void:
-	# Paint a 9×9 iso diamond lattice in alternating shades. The drop-
-	# shadow outline is a 1px black-with-alpha edge per tile (matches
-	# what render_action_static.gd commits to docs/screenshots/action.png).
-	for gy in range(-LATTICE_RADIUS, LATTICE_RADIUS + 1):
-		for gx in range(-LATTICE_RADIUS, LATTICE_RADIUS + 1):
-			var center := Vector2(
-				float(gx - gy) * TILE_W * 0.5,
-				float(gx + gy) * TILE_H * 0.5
-			)
-			var fill: Color
-			if (gx + gy) % 2 == 0:
-				fill = Color(0.36, 0.58, 0.32, 1.0)
-			else:
-				fill = Color(0.30, 0.52, 0.28, 1.0)
-			_draw_diamond(center, TILE_W * 0.5, TILE_H * 0.5, fill)
-
-func _draw_diamond(center: Vector2, rx: float, ry: float, c: Color) -> void:
-	var pts := PackedVector2Array([
-		center + Vector2(0, -ry),
-		center + Vector2(rx, 0),
-		center + Vector2(0, ry),
-		center + Vector2(-rx, 0),
-	])
-	draw_colored_polygon(pts, c)
-	# 1-px diamond outline for the lattice grain.
-	var outline := Color(0, 0, 0, 0.30)
-	draw_line(pts[0], pts[1], outline, 1.0)
-	draw_line(pts[1], pts[2], outline, 1.0)
-	draw_line(pts[2], pts[3], outline, 1.0)
-	draw_line(pts[3], pts[0], outline, 1.0)
+# ---------- iso ground lattice (pre-baked Sprite2D) ----------
+#
+# S-386 §I.0 — replaced runtime _draw_diamond / draw_colored_polygon
+# with a single Sprite2D loading the 9×9 baked PNG composite from
+# `assets/sprites/3rd-party/composites/ground_lattice_9.png`. The
+# painter's-order projection + per-cell variant hash were performed at
+# build time by `scripts/gen-3rd-party-composites.mjs` using Kenney
+# Tiny Town CC0 source tiles.
+func _build_ground_lattice() -> void:
+	var sa := get_node_or_null("/root/SpriteAtlas")
+	if sa == null:
+		return
+	var tex: Texture2D = sa.ground_lattice(9)
+	if tex == null:
+		return
+	var sprite := Sprite2D.new()
+	sprite.name = "GroundLattice"
+	sprite.texture = tex
+	sprite.centered = true
+	# The composite was baked at HW=64, HH=32. The Hero design uses
+	# TILE_W=84, TILE_H=42, i.e. ~1.31× scale. Scale uniformly so the
+	# pre-baked diamonds match the existing layout footprint.
+	var s := float(TILE_W) / 128.0
+	sprite.scale = Vector2(s, s)
+	sprite.z_index = 0
+	add_child(sprite)
 
 # ---------- houses + characters ----------
 
