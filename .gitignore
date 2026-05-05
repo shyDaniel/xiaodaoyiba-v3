@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.env
+.env.local
+.vite/
+coverage/
+.autopilot/
+*.tsbuildinfo
+.turbo/
+.cache/
+.playwright-mcp/
+
+# Godot
+client/.godot/
+client/.import/
+client/build/
+client/export.cfg
+client/export_credentials.cfg
+*.translation
+*.import
+
+# Smoke-test screenshots dumped at the repo root by playwright drives
+/*.png
