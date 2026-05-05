@@ -17,6 +17,7 @@
     "typecheck": "pnpm -r exec tsc --noEmit",
     "sim": "pnpm --filter @xdyb/server sim",
     "serve": "bash scripts/serve-html5.sh",
+    "validate:browser": "bash scripts/validate-browser.sh",
     "godot:import": "godot --headless --path client --import",
     "codegen:timing": "pnpm --filter @xdyb/shared run codegen:timing",
     "codegen:audio": "node scripts/codegen-audio.mjs"

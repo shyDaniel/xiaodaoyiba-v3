@@ -2,6 +2,74 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 17 — S-183 — first live-Godot-canvas screenshot in this WSL2 sandbox (browser MCP gap closed)
+
+**Bug:** Both the `playwright` and `chrome-devtools` MCPs fail to launch on
+this host. The user-installed `~/.cache/ms-playwright/chromium-1217/`
+binary refuses to start because `libnspr4.so`, `libnss3.so`,
+`libnssutil3.so`, and `libasound.so.2` are not installed system-wide
+and `sudo` is password-locked. Consequence: the live HTML5 build at
+`client/build/index.html` had never been validated end-to-end in a
+browser — every prior "screenshot" was a static composite produced by
+`render_action_static.gd` blitting sprite atlases, NOT a frame of the
+live `Game.tscn` scene tree.
+
+**Fix:**
+1. Discovered that `~/.local/chrome-libs/usr/lib/x86_64-linux-gnu/`
+   already contained the missing `.so` files (apt-get-downloaded by
+   a prior session, never wired up). Verified
+   `LD_LIBRARY_PATH=$CHROME_LIBS chrome-headless-shell --version`
+   prints `Google Chrome for Testing 147.0.7727.15` cleanly.
+2. Wrote `scripts/validate-browser.sh` (~220 lines) that drives the
+   chrome-headless-shell binary through `playwright-core` (npm-pack'd
+   one-time into `~/.cache/xdyb-playwright-core/1.59.1/`, ~2.5 MB,
+   no project dependency added). The script:
+     - exports `LD_LIBRARY_PATH=$HOME/.local/chrome-libs/...`,
+     - launches chromium with `--use-gl=angle --use-angle=swiftshader
+       --enable-unsafe-swiftshader` (Godot HTML5 needs WebGL2; on a
+       sandbox without a real GPU the SwiftShader software rasterizer
+       satisfies the requirement),
+     - waits for `<canvas>` to mount with `width>0`,
+     - sleeps `SETTLE_MS` (default 8000ms) so workers init and the
+       first scene frame paints,
+     - takes a 1280×720 screenshot,
+     - decodes the PNG inline (zlib + Paeth, no `pngjs` dep) and
+       counts non-black pixels — fails the run if < 10000 (proves
+       the canvas actually rendered something, not just a 404 or a
+       splash that never advanced).
+3. Added `pnpm validate:browser` to `package.json`.
+4. Restored `.mcp.json` with both MCP servers registered AND
+   `LD_LIBRARY_PATH` injected via the `env` block so future hosts
+   (or this one, after a Claude Code restart) can use the MCPs
+   directly. The script remains the canonical offline path for
+   environments where the MCPs still fail.
+
+**Acceptance test (verbatim from S-183 brief) — passes:**
+```
+$ rm -f screenshots/live-landing.png && bash scripts/validate-browser.sh
+[validate-browser] driving headless chromium against http://localhost:5173/
+[validate-browser] settle=8000ms  viewport=1280x720  out=...
+png 1280x720
+[validate-browser] PASS: 921600 non-black pixels  ->  screenshots/live-landing.png
+```
+- exit 0 ✓
+- 921 600 non-black pixels (≫ 10 000 floor) ✓
+- `pnpm test` → **90/90 green** (79 shared + 11 server) — no regression ✓
+
+**Visual evidence:** opened the regenerated `screenshots/live-landing.png`
+with the Read tool. The frame shows the live Godot Landing scene:
+parallax sky with mountains on the right, a green ground plane, the
+sample character with the knife held + persistent-shame red briefs
+visible, an orange-roof house with two blue windows and a brown door,
+and the Landing-scene UI overlay with a `ws://localhost:3000` input
+field and three CJK-labelled buttons. The CJK glyphs render as
+missing-glyph tofu in the headless sandbox (no Noto CJK fallback in
+this minimal lib set) but the geometric scene tree — TileMap ground,
+parallax mountains, character sprite, house sprite, knife sprite — is
+fully present. **This is the first proven end-to-end render of the
+live `client/build/` build in this loop**; every prior "screenshot"
+was a static composite.
+
 ## Iteration 16 — S-176 — §C8 nickname pills land in the README hero (no more silent CJK fallback)
 
 **Bug:** iter-15 (S-169) replaced the in-roof Label with a hand-rolled

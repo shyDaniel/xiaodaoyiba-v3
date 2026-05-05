@@ -1,0 +1,21 @@
+{
+  "_comment": "Per-project MCP server config. Both `playwright` and `chrome-devtools` MCPs are auto-discovered by Claude Code from its global config and we keep them registered here for hosts that DO have a usable system Chromium. They will fail to launch on any host where libnspr4/libnss3/libasound2 are not installed (e.g. this WSL2 sandbox without sudo) — in that case use `bash scripts/validate-browser.sh` as the offline fallback. The script ships its own LD_LIBRARY_PATH workaround and a one-time playwright-core fetch, and writes screenshots/live-landing.png with the same headless Chromium binary the MCPs would use.",
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"],
+      "env": {
+        "LD_LIBRARY_PATH": "${HOME}/.local/chrome-libs/usr/lib/x86_64-linux-gnu",
+        "PLAYWRIGHT_BROWSERS_PATH": "${HOME}/.cache/ms-playwright"
+      }
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"],
+      "env": {
+        "LD_LIBRARY_PATH": "${HOME}/.local/chrome-libs/usr/lib/x86_64-linux-gnu",
+        "PLAYWRIGHT_BROWSERS_PATH": "${HOME}/.cache/ms-playwright"
+      }
+    }
+  }
+}
