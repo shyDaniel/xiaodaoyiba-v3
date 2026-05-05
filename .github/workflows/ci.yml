@@ -88,3 +88,12 @@ jobs:
 
       - name: godot audio smoke (load + loop_mode assertions)
         run: godot --headless --path client --script tests/audio_smoke.gd --quit
+
+      - name: godot lobby smoke (Lobby.tscn @onready bindings)
+        run: godot --headless --path client --script res://tests/smoke_lobby.gd
+
+      # S-205: A/S/L keybinds dispatch to Net.emit with proper host gating
+      # so headless chromium drivers can drive the lobby past the
+      # Button-pressed bug. Test hot-swaps Net's script with a recorder.
+      - name: godot lobby keybind smoke (S-205)
+        run: godot --headless --path client --script res://tests/smoke_lobby_keybinds.gd

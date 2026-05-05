@@ -54,7 +54,8 @@ theme_override_font_sizes/font_size = 32
 theme_override_colors/font_color = Color(1, 0.94, 0.62, 1)
 
 [node name="Hint" type="Label" parent="Card/V"]
-text = "Share the room code with friends - then Start"
+text = "Share the room code with friends - then Start
+Keys:  A add bot   S start   L leave"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 14
 theme_override_colors/font_color = Color(0.78, 0.82, 0.88, 1)
@@ -74,16 +75,19 @@ alignment = 1
 theme_override_constants/separation = 12
 
 [node name="AddBot" type="Button" parent="Card/V/Buttons"]
-custom_minimum_size = Vector2(120, 48)
-text = "Add Bot"
+custom_minimum_size = Vector2(140, 48)
+text = "Add Bot [A]"
 theme_override_font_sizes/font_size = 16
+shortcut_in_tooltip = false
 
 [node name="Start" type="Button" parent="Card/V/Buttons"]
-custom_minimum_size = Vector2(120, 48)
-text = "Start"
+custom_minimum_size = Vector2(140, 48)
+text = "Start [S]"
 theme_override_font_sizes/font_size = 16
+shortcut_in_tooltip = false
 
 [node name="Leave" type="Button" parent="Card/V/Buttons"]
-custom_minimum_size = Vector2(120, 48)
-text = "Leave"
+custom_minimum_size = Vector2(140, 48)
+text = "Leave [L]"
 theme_override_font_sizes/font_size = 16
+shortcut_in_tooltip = false

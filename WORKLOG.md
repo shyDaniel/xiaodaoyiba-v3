@@ -2,6 +2,55 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 38 — S-205 — Lobby keybinds (A/S/L) for headless drivers
+
+**Bug.** Headless chromium against http://localhost:5173 can land on the
+lobby (Create Room works; WebSocket sends `room:create` and receives
+`room:created`), but `mouse.down` + `mouse.up` at the Add Bot button
+center produces zero `room:addBot` frames. The button receives mouse-
+over (focus ring renders) but `Button.pressed` never fires under
+synthetic input through the WASM canvas. This blocks every agent-
+driven Definition-of-Done test even when chromium can be launched —
+no agent can grow the lobby past 1 player, so §C1/C2/C7/C9/C10 have
+never been visually verified.
+
+**Fix.** Picked option (iii) from the brief — add a Lobby keybind
+fallback. Synthetic key events (`page.keyboard.press('A')`) reach
+Godot's input pipeline reliably even where the Button-pressed signal
+does not. `client/scripts/ui/Lobby.gd` now implements
+`_unhandled_key_input`:
+
+  - **A** → `GameState.add_bot()` (host-only, mirrors button gating)
+  - **S** → `GameState.start_game()` (host-only, ≥ 2 players)
+  - **L** → `GameState.leave_room()`
+
+State (`_is_host`, `_player_count`) is cached from the snapshot in
+`_render` so the keybind handler applies the exact same gating as the
+buttons. The hint label and button captions now advertise the
+shortcuts: "Keys: A add bot · S start · L leave" and "Add Bot [A]" /
+"Start [S]" / "Leave [L]" so a first-time human user discovers them
+without docs.
+
+**Test.** New `client/tests/smoke_lobby_keybinds.gd` hot-swaps the Net
+autoload with a recorder subclass and asserts:
+  - 'A' as host → `room:addBot` recorded ✓
+  - 'S' as host with 2 players → `room:start` recorded ✓
+  - 'L' → `room:leave` recorded ✓
+  - 'A' as non-host → no emit ✓
+  - 'S' as non-host → no emit ✓
+  - 'S' as host with 1 player → no emit ✓
+Wired into `.github/workflows/ci.yml` after the audio smoke step.
+Existing `smoke_lobby.gd` still passes; `pnpm test` 90/90 still green;
+`godot --headless --import client/` clean.
+
+**Repro path post-fix.** A headless driver can now:
+1. `page.goto('http://localhost:5173')`
+2. click Create Room (works as before)
+3. `page.keyboard.press('a')` × 3 → 3 `room:addBot` frames
+4. `page.keyboard.press('s')` → `room:start`
+The 5s acceptance window in the brief is satisfied with margin
+(keybind dispatch is single-frame).
+
 ## Iteration 19 — S-201 — README hero: pill ↔ roof-label honesty fix
 
 **Bug.** The committed `docs/screenshots/action.png` (rendered by
