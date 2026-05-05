@@ -67,29 +67,38 @@ color = Color(0.32, 0.50, 0.30, 1)
 position = Vector2(820, 500)
 script = ExtResource("2_hero")
 
-[node name="Title" type="Label" parent="."]
+; --- Title — CJK rhyme couplet matches Lobby (S-350). NotoSansSC is bundled
+; --- globally via project.godot[gui]theme/custom_font so glyph data exists
+; --- in the HTML5 export. A small Latin transliteration sits beneath as a
+; --- subtitle so the brand still reads in non-CJK locales.
+[node name="TitleBox" type="VBoxContainer" parent="."]
 layout_mode = 1
 offset_left = 60.0
-offset_top = 70.0
-offset_right = 700.0
-offset_bottom = 160.0
-text = "Knife to Your Door"
-theme_override_font_sizes/font_size = 64
+offset_top = 60.0
+offset_right = 760.0
+offset_bottom = 220.0
+theme_override_constants/separation = 4
+
+[node name="RhymeLine1" type="Label" parent="TitleBox"]
+text = "小刀一把，来到你家"
+theme_override_font_sizes/font_size = 52
 theme_override_colors/font_color = Color(1, 0.94, 0.62, 1)
 theme_override_colors/font_outline_color = Color(0.06, 0.07, 0.1, 1)
 theme_override_constants/outline_size = 8
 
-[node name="Subtitle" type="Label" parent="."]
-layout_mode = 1
-offset_left = 60.0
-offset_top = 160.0
-offset_right = 700.0
-offset_bottom = 200.0
-text = "One little knife, runs to your house, pulls down your pants — CHOP!"
-theme_override_font_sizes/font_size = 22
-theme_override_colors/font_color = Color(0.94, 0.94, 0.94, 1)
+[node name="RhymeLine2" type="Label" parent="TitleBox"]
+text = "扒你裤衩，直接咔嚓！"
+theme_override_font_sizes/font_size = 52
+theme_override_colors/font_color = Color(1, 0.94, 0.62, 1)
 theme_override_colors/font_outline_color = Color(0.06, 0.07, 0.1, 1)
-theme_override_constants/outline_size = 4
+theme_override_constants/outline_size = 8
+
+[node name="Subtitle" type="Label" parent="TitleBox"]
+text = "One little knife — chop chop"
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.86, 0.88, 0.92, 1)
+theme_override_colors/font_outline_color = Color(0.06, 0.07, 0.1, 1)
+theme_override_constants/outline_size = 3
 
 [node name="V" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -102,7 +111,7 @@ theme_override_constants/separation = 12
 [node name="Nick" type="LineEdit" parent="V"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
-placeholder_text = "Your nickname"
+placeholder_text = "昵称"
 
 [node name="ServerRow" type="HBoxContainer" parent="V"]
 layout_mode = 2
@@ -110,7 +119,7 @@ theme_override_constants/separation = 8
 
 [node name="ServerLabel" type="Label" parent="V/ServerRow"]
 custom_minimum_size = Vector2(80, 0)
-text = "Server"
+text = "服务器"
 theme_override_colors/font_color = Color(0.78, 0.82, 0.88, 1)
 
 [node name="Server" type="LineEdit" parent="V/ServerRow"]
@@ -122,7 +131,7 @@ layout_mode = 2
 
 [node name="Create" type="Button" parent="V/CreateRow"]
 custom_minimum_size = Vector2(220, 56)
-text = "Create Room"
+text = "开个房"
 theme_override_font_sizes/font_size = 22
 
 [node name="JoinRow" type="HBoxContainer" parent="V"]
@@ -131,15 +140,15 @@ theme_override_constants/separation = 8
 
 [node name="Code" type="LineEdit" parent="V/JoinRow"]
 custom_minimum_size = Vector2(140, 56)
-placeholder_text = "Room (4)"
+placeholder_text = "房号 (4位)"
 max_length = 4
 
 [node name="Join" type="Button" parent="V/JoinRow"]
 custom_minimum_size = Vector2(140, 56)
-text = "Join Room"
+text = "进房间"
 theme_override_font_sizes/font_size = 22
 
 [node name="Status" type="Label" parent="V"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.78, 0.82, 0.88, 1)
-text = "Disconnected"
+text = "未连接"

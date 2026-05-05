@@ -1,12 +1,13 @@
 # Landing.gd — title screen, nickname entry, create-room / join-room.
 #
 # FINAL_GOAL §title: the game's CN name is 小刀一把冲到你家 ("knife to your
-# door"). Visible UI strings are Latin so the live HTML5 build is legible
-# in any browser without a CJK system font (S-192 regression — without a
-# bundled CJK FontFile, the engine has no glyph data for these codepoints
-# and renders missing-glyph tofu). The hero illustration is procedural
-# (knife + house + character silhouette) so the project ships without
-# uploaded art per §G.
+# door"). Visible UI strings are CJK to match the in-game scene and the
+# nursery-rhyme brand (S-350). NotoSansSC is bundled globally as the
+# project's default font (project.godot[gui]theme/custom_font), so the
+# HTML5 build always has glyph data for 小刀/裤衩/咔嚓 even on browsers
+# without a system CJK fallback (S-332 fixed the missing-glyph tofu that
+# blocked S-192). The hero illustration is procedural (knife + house +
+# character silhouette) so the project ships without uploaded art per §G.
 
 extends Control
 
@@ -33,8 +34,8 @@ func _ready() -> void:
 	GameState.error_changed.connect(_on_error)
 	GameState.connection_status_changed.connect(_on_status)
 	# Default server URL hint visible in the UI.
-	_server_input.placeholder_text = "default ws://localhost:3000"
-	_status.text = "Disconnected - enter a nickname, then Create Room or Join Room"
+	_server_input.placeholder_text = "默认 ws://localhost:3000"
+	_status.text = "未连接 — 填昵称后点 开个房 或 进房间"
 	Audio.cross_fade_bgm("lobby")
 	_install_js_bridge()
 
@@ -97,8 +98,10 @@ func _js_setnick(args) -> void:
 			_nick_input.text = v
 
 func _gen_nick() -> String:
-	# Latin nick pool keeps every visible label legible in browsers without
-	# a CJK system font (Landing/Lobby/iso roof labels all render this).
+	# Latin nick pool — kept Latin (not CJK) on purpose so south-anchor name
+	# labels in Game.tscn fit inside the iso roof callout box (S-302
+	# stagger sizing assumes ~6-char Latin width). NotoSansSC still ships
+	# in the bundle so users may override with CJK names if desired.
 	var pool := ["Ming", "Hong", "Lei", "Mei", "Bao", "Jia"]
 	return pool[randi() % pool.size()] + str(randi() % 100)
 
@@ -112,13 +115,13 @@ func _ensure_connected() -> bool:
 		Net.connect_to_server()
 	else:
 		Net.connect_to_server(url)
-	_status.text = "Connecting to server..."
+	_status.text = "正在连接服务器…"
 	return false
 
 func _on_create() -> void:
 	var nick := _nick_input.text.strip_edges()
 	if nick.length() == 0:
-		_status.text = "Please enter a nickname first"
+		_status.text = "先填个昵称"
 		return
 	if not _ensure_connected():
 		await Net.connected
@@ -128,7 +131,7 @@ func _on_join() -> void:
 	var nick := _nick_input.text.strip_edges()
 	var code := _code_input.text.strip_edges().to_upper()
 	if nick.length() == 0 or code.length() == 0:
-		_status.text = "Please enter a nickname and a room code"
+		_status.text = "昵称和房号都要填"
 		return
 	if not _ensure_connected():
 		await Net.connected
@@ -136,10 +139,10 @@ func _on_join() -> void:
 
 func _on_error(msg: String) -> void:
 	if msg.length() > 0:
-		_status.text = "x " + msg
+		_status.text = "✗ " + msg
 
 func _on_status(c: bool) -> void:
 	if c:
-		_status.text = "Connected to server"
+		_status.text = "已连上"
 	else:
-		_status.text = "Disconnected"
+		_status.text = "未连接"

@@ -2,6 +2,55 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 74 — S-350 — Landing localized to CJK rhyme
+
+**Symptom.** Iter-73 had the in-game scene + lobby + WinnerPicker fully
+Chinese, but Landing.tscn still hard-coded `Knife to Your Door` /
+`One little knife, runs to your house, pulls down your pants — CHOP!` /
+`Server` / `Create Room` / `Join Room` / `Disconnected` plus the
+placeholders `Your nickname` / `Room (4)`. The very first surface a
+player meets was monolingual English while the in-game scene is fully
+Chinese — first impression was jarring and broke the brand identity at
+the screen with the highest bounce risk.
+
+**Fix.** Replaced the single `Title` Label with a `TitleBox` VBox
+containing `RhymeLine1` (`小刀一把，来到你家`), `RhymeLine2`
+(`扒你裤衩，直接咔嚓！`) at 52 px, and a small `Subtitle` Latin
+transliteration (`One little knife — chop chop`, 18 px) per spec
+("Keep the latin transliteration as a small subtitle at most"). Buttons
+`Create Room`/`Join Room` → `开个房`/`进房间`, server label → `服务器`,
+status `Disconnected`/`Connected to server` → `未连接`/`已连上`,
+placeholders → `昵称` / `房号 (4位)` / `默认 ws://localhost:3000`.
+Status flavor text in `Landing.gd` swapped to `未连接 — 填昵称后点 开个房
+或 进房间`, error toast `✗ <msg>`, mid-connect `正在连接服务器…`,
+validation `先填个昵称` / `昵称和房号都要填`. NotoSansSC is already
+bundled globally as the project default font (S-332,
+`project.godot[gui]theme/custom_font`), so every CJK glyph renders in
+the HTML5 build without a system fallback.
+
+**Verification.** Added `client/tests/render_landing.gd` — instantiates
+`Landing.tscn`, walks every `Label`/`Button`/`LineEdit`, dumps text +
+placeholder, and hard-fails if any of `Knife to Your Door` / `Create
+Room` / `Join Room` / `Disconnected` / `Your nickname` / `Room (4)`
+substring leaks through. PASS under headless Godot. Then ran
+`pnpm serve` + `scripts/validate-browser.sh` to capture
+`screenshots/landing-cjk.png` (1280×720, 921 600 non-black pixels)
+under swiftshader — title couplet, server label, both buttons,
+placeholders and status all draw with NotoSansSC glyphs (no `.notdef`
+tofu). `pnpm test` 90/90 still green; `bash scripts/build.sh
+--client-only` exports `build/index.html` cleanly (52 MB, dominated by
+the bundled NotoSansSC font in the `.pck` per S-332 — soft warning per
+§E3, not a fail).
+
+**Observed in browser.** First-time visitor now sees a fully Chinese
+title screen: rhyme couplet in cream-yellow with dark outline against
+the same sky/mountain/grass palette as Lobby and Game, three iso
+houses with bot/character previews on the right, "服务器 / 默认
+ws://localhost:3000" / "开个房" / "房号 (4位) / 进房间" / "未连接".
+Latin transliteration sits below the couplet at 18 px so non-CJK
+locales can still parse the brand. Landing → Lobby → Game is now a
+single Chinese surface end-to-end.
+
 ## Iteration 71 — S-332 — CJK font bundled, Chinese rhyme readable in browser
 
 **Symptom.** Iter-70 (S-327) themed the lobby with the rhyme couplet
