@@ -2080,3 +2080,47 @@ viral-aesthetic-gate failure. FINAL_GOAL §C10 explicitly demands
   WinnerPicker doesn't surface in the spectator-driven path because
   the human is in spectator mode; the new render_winner_picker.gd
   test covers the picker localization assertion directly.
+
+## S-358 — Lobby room panel localized to CJK rhyme idiom
+
+Closes the iter-74 regression where Landing was Chinese but the very
+first click into Lobby exposed an English admin card. Edited
+`client/scenes/Lobby.tscn` and `client/scripts/ui/Lobby.gd` so the
+room panel reads in the same 来到你家/扒裤衩 voice already used by
+Landing and BattleLog:
+
+| Before                                            | After                          |
+| ------------------------------------------------- | ------------------------------ |
+| `Room ----`                                       | `房号 ----`                    |
+| `Share the room code with friends - then Start\nKeys: A add bot S start L leave` | `把房号发给朋友，凑齐人就开打\n按键：A 加机器人  S 开打  L 走人` |
+| `Players`                                         | `玩家`                         |
+| `Add Bot [A]`                                     | `加机器人 [A]`                 |
+| `Start [S]`                                       | `开打 [S]`                     |
+| `Leave [L]`                                       | `走人 [L]`                     |
+| `nickname (bot) ★`                                | `nickname（机器人） ★`         |
+| runtime `Room %s` from `_render`                  | runtime `房号 %s`              |
+
+Grew `client/tests/render_lobby.gd` into a substring-contract test
+matching `render_landing.gd`'s shape — walks every Label / Button /
+LineEdit and hard-fails on `'Room '`, `'Share the room'`, `'Players'`,
+`'Add Bot'`, `'Start ['`, `'Leave ['`, `'(bot)'`, `'add bot'`,
+`'S start'`, `'L leave'`. Test passes; dump confirms the only Latin
+text remaining in the lobby is the title couplet's helper transliteration
+(`One little knife, comes to your door — pulls down your pants, CHOP!`),
+which is intentional and outside the room-panel scope.
+
+Verification:
+- `godot --headless --path client --script res://tests/render_lobby.gd`
+  → PASS — no forbidden-English substrings found. Dump shows
+  `Code='房号 ABCD'`, `Hint='把房号发给朋友，凑齐人就开打\n按键：A 加机器人  S 开打  L 走人'`,
+  `Members/Title='玩家'`, `AddBot='加机器人 [A]'`, `Start='开打 [S]'`,
+  `Leave='走人 [L]'`, `'机器人甲（机器人）'` for the bot row.
+- `godot --headless --path client --script res://tests/smoke_lobby.gd`
+  → PASS — Lobby instantiated cleanly, all @onready vars bound, 3 rows
+  rendered, host buttons enabled.
+- `smoke_lobby_keybinds.gd` → PASS — A/S/L still dispatch with correct
+  host + player-count gating.
+- `smoke_lobby_theme.gd` → PASS — knife + houses + rhyme couplet still
+  themed.
+- `render_landing.gd` → PASS, no regression.
+- `pnpm test` → 90 TS tests green (shared 79, server 11).

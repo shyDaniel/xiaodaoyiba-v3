@@ -6,8 +6,10 @@
 #   - host-only controls: Add Bot / Start
 #   - leave button
 #
-# All visible strings are Latin so the live HTML5 build stays legible
-# without a CJK system font (S-192).
+# Visible strings are Chinese rhyme idiom (S-358) — 房号 / 加机器人 /
+# 开打 / 走人 — so Landing → Lobby → Game is one continuous CJK
+# surface. Bundled NotoSansSC (S-332) renders them in the HTML5 build
+# without relying on a system CJK font.
 #
 # Keybinds (S-205): the live HTML5 build sometimes loses synthetic mouse
 # clicks against Godot Buttons when driven by headless chromium —
@@ -249,7 +251,7 @@ func _js_leave(_args) -> void:
 	GameState.leave_room()
 
 func _render(snap: Dictionary) -> void:
-	_code_label.text = "Room %s" % GameState.room_code
+	_code_label.text = "房号 %s" % GameState.room_code
 	for c in _members.get_children():
 		c.queue_free()
 	var players: Array = snap.get("players", [])
@@ -263,7 +265,7 @@ func _render(snap: Dictionary) -> void:
 		swatch.color = Color.from_hsv(float(i) / float(max(n, 1)), 0.55, 0.95)
 		row.add_child(swatch)
 		var name := Label.new()
-		var tag := " (bot)" if bool(p.get("isBot", false)) else ""
+		var tag := "（机器人）" if bool(p.get("isBot", false)) else ""
 		var host_marker := " ★" if bool(p.get("isHost", false)) else ""
 		name.text = "%s%s%s" % [p.get("nickname", "?"), tag, host_marker]
 		name.add_theme_font_size_override("font_size", 18)
