@@ -41,6 +41,13 @@ const Character := preload("res://scripts/characters/Character.gd")
 var _characters: Dictionary = {}        # player_id → Character
 var _houses: Dictionary = {}            # player_id → Node2D
 var _player_order: Array = []           # player ids in iteration order
+# S-285 — house anchor occupancy ledger. Maps target_pid → ordered
+# Array of visitor pids currently camped on that house anchor (in
+# arrival order). Used by _apply_visit_label_stack to fan multiple
+# visitors' NameLabels out vertically instead of dumping them all on
+# top of each other (the t27000 'counterorandom' regression). Cleared
+# on every round transition by _reset_round_ui.
+var _house_occupants: Dictionary = {}   # target_pid → Array[String]
 # S-243 — track round transitions so we can re-enable per-round UI
 # (HandPicker, WinnerPicker, throw glyphs) when the server begins a
 # new round. Initialized to 0 because the LOBBY snapshot has round=0
@@ -139,18 +146,22 @@ func _reset_round_ui(players: Array) -> void:
 	for c in _characters.values():
 		if c != null and c.has_method("hide_throw"):
 			(c as Character).hide_throw()
-	# S-269 — clear any visiting-stack / resident-dim label state from
-	# the previous round. Once a new round starts every character is
-	# back in its own house (the engine no longer has PHASE_T_RETURN
-	# but the next REVEAL pegs them to their home anchor implicitly),
-	# so neither the visit-stack offset nor the resident dim should
-	# persist into a fresh round.
+	# S-269 / S-285 — clear any visiting-stack / resident-dim label
+	# state from the previous round. Once a new round starts every
+	# character is back in its own house (the engine no longer has
+	# PHASE_T_RETURN but the next REVEAL pegs them to their home
+	# anchor implicitly), so neither the visit-stack offset nor the
+	# resident dim should persist into a fresh round. Clearing
+	# _house_occupants is critical: without it, a visitor from R3 who
+	# never explicitly teleported home would still occupy the
+	# resident's anchor in R4, and the next visit would stack on top.
+	_house_occupants.clear()
 	for c in _characters.values():
 		if c == null:
 			continue
 		var ch := c as Character
-		if ch.has_method("set_label_visiting"):
-			ch.set_label_visiting(false)
+		if ch.has_method("set_label_stack_index"):
+			ch.set_label_stack_index(0)
 		if ch.has_method("set_label_resident_dimmed"):
 			ch.set_label_resident_dimmed(false)
 	# Hide the winner picker if it was left open.
@@ -268,32 +279,64 @@ func play_action(actor: String, target: String, kind: String) -> void:
 		"PULL_PANTS":
 			Audio.play_sfx("pull")
 			actor_char.rush_to(target_char.position + Vector2(-32, 0), Timing.PHASE_T_RUSH)
-			_apply_visit_label_stack(actor_char, target_char)
+			_apply_visit_label_stack(actor, target)
 		"CHOP":
 			Audio.play_sfx("chop")
 			actor_char.rush_to(target_char.position + Vector2(-32, 0), Timing.PHASE_T_RUSH)
-			_apply_visit_label_stack(actor_char, target_char)
+			_apply_visit_label_stack(actor, target)
 		"PULL_OWN_PANTS_UP":
 			# Self-action: no rush, just a dignified flash.
 			actor_char.play_attack_wiggle()
 		_:
 			pass
 
-# S-269 — apply name-label collision handling when the actor visits the
-# target's house anchor. Stack the actor's NameLabel above the
-# resident's so the two don't garble together (e.g. "randoming14"),
-# and fade the resident's NameLabel to 50% alpha so the visiting
-# actor's name reads as the foreground identity. Cleared on round
-# transition (_reset_round_ui) and on teleport_home.
-func _apply_visit_label_stack(actor_char: Character, target_char: Character) -> void:
-	if actor_char == null or target_char == null:
+# S-269 / S-285 — apply name-label collision handling when an actor
+# visits the target's house anchor. Each visitor at a given target's
+# house gets a unique vertical stack slot (1, 2, 3, …) so their
+# NameLabels fan out instead of overlapping (the t27000.png
+# 'counterorandom' regression — three visitors collapsed onto one y
+# coord and concatenated). The resident keeps the default y but
+# fades to LABEL_DIMMED_ALPHA so the foreground reads as the visitors.
+#
+# The occupants ledger is keyed by target pid so the second visitor at
+# random's house gets idx=2, the third gets idx=3, etc., regardless of
+# which round they arrived in. _reset_round_ui clears the ledger at
+# every round transition.
+func _apply_visit_label_stack(actor_id: String, target_id: String) -> void:
+	if actor_id == "" or target_id == "" or actor_id == target_id:
 		return
-	if actor_char == target_char:
+	if not _characters.has(actor_id) or not _characters.has(target_id):
 		return
-	if actor_char.has_method("set_label_visiting"):
-		actor_char.set_label_visiting(true)
-	if target_char.has_method("set_label_resident_dimmed"):
-		target_char.set_label_resident_dimmed(true)
+	# Append to the target's occupant list (deduped — repeated CHOP after
+	# PULL_PANTS in the same round must NOT re-stack the same actor).
+	var occupants: Array = _house_occupants.get(target_id, [])
+	if not occupants.has(actor_id):
+		occupants.append(actor_id)
+	_house_occupants[target_id] = occupants
+
+	# Resident sits at idx=0 and dims while ≥1 visitor is present.
+	var target_char: Character = _characters[target_id]
+	if target_char != null:
+		if target_char.has_method("set_label_stack_index"):
+			target_char.set_label_stack_index(0)
+		if target_char.has_method("set_label_resident_dimmed"):
+			target_char.set_label_resident_dimmed(occupants.size() >= 1)
+
+	# Each visitor in arrival order gets idx=1, 2, 3, …
+	for i in range(occupants.size()):
+		var pid: String = String(occupants[i])
+		if not _characters.has(pid):
+			continue
+		var ch: Character = _characters[pid]
+		if ch == null:
+			continue
+		if ch.has_method("set_label_stack_index"):
+			ch.set_label_stack_index(i + 1)
+		# A visitor never simultaneously plays the resident-dim role on
+		# its own anchor while it is camped elsewhere; clear it
+		# defensively in case it was set in a prior phase.
+		if ch.has_method("set_label_resident_dimmed"):
+			ch.set_label_resident_dimmed(false)
 
 # --- particle FX (S-261, FINAL_GOAL §C5) -----------------------------------
 #

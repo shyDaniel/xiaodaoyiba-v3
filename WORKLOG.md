@@ -2,6 +2,42 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 48 — S-285 — multi-actor name-label fan-out (≥3 occupants at one anchor)
+
+**Symptom.** Iter-47 judge screenshots showed 'Baorandom' (2-actor
+overlap) at t13000/t18000 and the worse 'counterorandom' 3-actor
+pile-up at t27000 when bots camped at one resident's house in the
+spectator round. S-269's binary `set_label_visiting(bool)` only fanned
+the *first* visitor; every subsequent visitor was stacked on the same
+y, so 3+ labels still concatenated.
+
+**Fix.** Generalise the visiting flag into a stack-index API:
+- `Character.set_label_stack_index(idx)` shifts NameLabel up by
+  `LABEL_STACK_OFFSET * idx` (28 px per slot — exceeds the brief's
+  ≥20-px gap clause). Visitors (idx ≥ 1) also bump the font outline
+  from 4 px to 8 px so the floating label pops against the iso-stage
+  background ("contrasting drop-shadow" clause).
+- `set_label_visiting(bool)` is kept as a back-compat wrapper for the
+  existing 2-actor S-269 test.
+- `GameStage._house_occupants: Dict[target_pid → ordered visitor
+  pids]` ledger; `_apply_visit_label_stack(actor_id, target_id)`
+  appends (deduped) and re-stacks every occupant 1, 2, 3, … The
+  resident stays at idx=0 and dims while ≥1 visitor is present.
+- Ledger is cleared on every round transition by `_reset_round_ui`.
+
+**Test.** New `client/tests/render_label_collision_3actor.gd` spawns
+4 characters (1 resident + 3 visitors) at a shared anchor, applies
+the stack indices, computes each label's global rect, and asserts
+*pairwise intersection area = 0*. Passes with 28-px gaps at y=146 /
+174 / 202 / 230. Existing S-269 2-actor test still passes (verified
+back-compat).
+
+**Gates.** `pnpm test` 90/90 (shared 79, server 11). `pnpm sim` 50r
+seed=42 → tie_rate=0.260, no winner >60% (max 2/5=40%),
+PULL_OWN_PANTS_UP fires. `godot --headless --import client/` clean.
+Headless `render_label_collision.gd` and
+`render_label_collision_3actor.gd` both PASS.
+
 ## Iteration 46 — S-269 — name-label collision fix (visiting actor stacks above resident, resident dims)
 
 **Symptom.** iter-44/iter-45 judge screenshots t13000.png / t18000.png /

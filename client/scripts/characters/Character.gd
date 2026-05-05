@@ -29,22 +29,31 @@ var home_position: Vector2 = Vector2.ZERO
 var _rush_tween: Tween = null
 var _knife_swing_tween: Tween = null
 
-# S-269 — name-label collision handling. When this character is the
-# visiting actor at another player's house anchor, its NameLabel is
-# stacked LABEL_STACK_OFFSET px above its default y so it sits clear
-# of the resident's label. When this character is the resident with
-# a visitor present, its NameLabel fades to LABEL_DIMMED_ALPHA so the
-# two labels are visually disambiguated without overlap-collision
-# garble like "randoming14" or "co…random". See FINAL_GOAL §C8.
-# 28px = label height (20px) + 4px gap + 4px breathing room. The
-# render_label_collision test asserts dy ≥ rect.size.y + 4 = 24, so
-# 28 keeps a comfortable margin while still being a tight enough
-# stack that the actor's name reads as related to the resident's.
+# S-269 / S-285 — name-label collision handling. When N≥2 characters
+# share a house anchor (visitor[s] camped at a resident's house), each
+# character is assigned a unique stack index so their NameLabels fan
+# out vertically instead of overlapping. Stack index 0 keeps the
+# default y (the resident's slot); index k≥1 lifts the label by
+# LABEL_STACK_OFFSET * k px so the labels read as a clean vertical
+# column. With OFFSET=28 px and a label height of 20 px this leaves a
+# 4-px gutter between adjacent labels, satisfying the ≥20-px-spacing
+# clause of the iter-48 brief AND the original ≥ rect.size.y + 4
+# acceptance from S-269.
+#
+# When the resident has at least one visitor, the resident's label
+# also fades to LABEL_DIMMED_ALPHA so the visiting actor[s] read as
+# the foreground identity. Visitors get a thicker font outline
+# (LABEL_VISITING_OUTLINE_SIZE px) for the brief's "contrasting drop-
+# shadow" requirement so each fanned-out name pops against the busy
+# isometric background instead of bleeding into the wall sprite
+# behind it. See FINAL_GOAL §C8.
 const LABEL_STACK_OFFSET: float = 28.0
 const LABEL_DIMMED_ALPHA: float = 0.5
+const LABEL_DEFAULT_OUTLINE_SIZE: int = 4
+const LABEL_VISITING_OUTLINE_SIZE: int = 8
 var _label_default_top: float = -130.0
 var _label_default_bottom: float = -110.0
-var _label_visiting: bool = false
+var _label_stack_index: int = 0
 var _label_resident_dimmed: bool = false
 
 @onready var _body: Sprite2D = $Body
@@ -122,26 +131,36 @@ func teleport_home() -> void:
 	# Returning home clears any visiting-stack offset on the label —
 	# we're back at our own anchor and don't share the tile with a
 	# resident, so the default label position is correct.
-	set_label_visiting(false)
+	set_label_stack_index(0)
 	set_label_resident_dimmed(false)
 	_refresh_visual()
 
-# S-269 — when this character has rushed to another player's house and
-# is co-located with the resident, stack its NameLabel LABEL_STACK_OFFSET
-# px above its default position so the two labels don't overlap and
-# garble (e.g. "randoming14"). When the visit ends, restore.
-func set_label_visiting(is_visiting: bool) -> void:
+# S-269 / S-285 — set the vertical stack slot for this character's
+# NameLabel when N≥2 characters share an anchor. idx=0 keeps the
+# default y; idx=k>=1 lifts the label by LABEL_STACK_OFFSET * k px so
+# multiple visitors can fan out without garbling into each other (e.g.
+# avoiding the t27000.png "counterorandom" 3-actor pile-up). Visitors
+# (idx≥1) also get a thicker font outline so the floating label pops
+# against the iso-stage background per the brief's drop-shadow clause.
+func set_label_stack_index(idx: int) -> void:
 	if _label == null:
 		return
-	if _label_visiting == is_visiting:
+	if _label_stack_index == idx:
 		return
-	_label_visiting = is_visiting
-	if is_visiting:
-		_label.offset_top = _label_default_top - LABEL_STACK_OFFSET
-		_label.offset_bottom = _label_default_bottom - LABEL_STACK_OFFSET
-	else:
-		_label.offset_top = _label_default_top
-		_label.offset_bottom = _label_default_bottom
+	_label_stack_index = idx
+	var dy: float = LABEL_STACK_OFFSET * float(idx)
+	_label.offset_top = _label_default_top - dy
+	_label.offset_bottom = _label_default_bottom - dy
+	# Visitors get a heavier outline; the resident keeps the default.
+	var outline: int = LABEL_VISITING_OUTLINE_SIZE if idx >= 1 else LABEL_DEFAULT_OUTLINE_SIZE
+	_label.add_theme_constant_override("outline_size", outline)
+
+# S-269 — back-compat shim for callers (and the original render_label_
+# collision test) that still speak the binary "is this character a
+# visitor" API. A visitor is just stack-index 1; clearing it is
+# stack-index 0. New call sites should prefer set_label_stack_index().
+func set_label_visiting(is_visiting: bool) -> void:
+	set_label_stack_index(1 if is_visiting else 0)
 
 # S-269 — fade the resident's NameLabel to LABEL_DIMMED_ALPHA while a
 # visitor is camped on this anchor, so the visiting actor's stacked
