@@ -542,3 +542,167 @@ When user provides hand-drawn art later, drop into:
 
 Loader prefers user assets over CC0 / procedural fallback (per the
 existing §C / asset-loading contract).
+
+---
+
+## §I. Mandatory CC0/CC-BY pack download — procedural entity art is BANNED (2026-05-05 second user playtest)
+
+User played §H ship: **"this is still so bad yo, i said 星露谷物语 / pokemon 那种可爱画风, 你看看我们现在是啥, 丑的一比, 计分板还把游戏挡住了, 路远得很呢"**.
+
+The §H spec offered three paths (CC0 packs, procedural, hybrid). The
+worker picked path 2 (procedural) for every entity sprite. That choice
+is no longer available. Hand-drawn pixel art of Stardew/Pokemon quality
+is **physically impossible to reach with `_draw_line` / `_draw_circle`
+/ programmatic Image manipulation**. Stardew was hand-drawn by Eric
+Barone over four years; Pokemon by professional artists. We are not
+going to compete with that procedurally — we are going to **stand on
+the shoulders of artists who already did it** by using their CC0/CC-BY
+work.
+
+### §I.0 HARD BAN — no procedural draw calls for entity art
+
+No new code AND no surviving code in the project may use any of these
+to render a character / house / tile / prop:
+
+- `draw_line`, `draw_circle`, `draw_rect`, `draw_polygon`,
+  `draw_polyline`, `draw_arc`, `draw_multiline`, `draw_colored_polygon`
+- `Image.set_pixel`, `Image.fill_rect`, `Image.fill`, manual loops over
+  `set_pixelv`
+- Any procedural sprite generator that produces character/house/tile
+  PNGs or in-memory ImageTextures
+
+**Allowed exceptions** (only these):
+- 9-slice UI chrome (`StyleBoxTexture` slices in `client/assets/sprites/ui/`)
+- Particle textures (small 4×4 dust/cloth/chip blobs — fine procedural)
+- Debug overlays / hit-testing markers (must be `editor_only` flagged)
+
+Eval check: `grep -rn 'draw_line\|draw_circle\|draw_rect\|draw_polygon\|set_pixel' client/scripts/ | grep -v 'tests/' | grep -v 'particles/' | grep -v 'ui/9slice' | grep -v 'editor_only'` must return **zero entity-rendering matches**. Any hit fails the build.
+
+### §I.1 Mandatory pack downloads — these specific packs
+
+Worker MUST `curl` and integrate at least these packs. They are
+licensed for unrestricted use and look like actual hand-drawn pixel
+art:
+
+**Characters** (chibi / Stardew-villager / Pokemon-trainer style):
+- Pipoya **RPG Character Pack** — https://pipoya.itch.io/pipoya-free-rpg-character-sprites-32x32
+  License: free, redistribution OK with credit
+  Format: 32×32 spritesheets, 4-direction walk cycles, tons of variants
+- Penzilla **Hooded Protagonist** + **Cute Fantasy Characters** —
+  https://penzilla.itch.io/hooded-protagonist (free)
+  License: free, modification + commercial OK
+- Kenney **Tiny Dungeon** + **Tiny Town** —
+  https://kenney.nl/assets/tiny-dungeon and https://kenney.nl/assets/tiny-town
+  License: CC0
+  Format: 16×16 native, includes characters + buildings + props
+
+**Houses + tiles** (top-down village / Stardew-style):
+- Kenney **Tiny Town** (above) — has buildings, fences, paths, props
+- Limezu **Modern Tiles RPG** — https://limezu.itch.io/moderntiles
+  License: free, attribution required
+- 0x72 **Dungeon Tileset II** — https://0x72.itch.io/dungeontileset-ii
+  License: CC0
+
+**Particles + decorative**:
+- Kenney **Particle Pack** — https://kenney.nl/assets/particle-pack
+- Kenney **Pixel UI Pack** — https://kenney.nl/assets/ui-pack-pixel-adventure
+
+**Fonts**:
+- DamienG **ZX Origins** pixel fonts — https://damieng.com/typography/zx-origins/
+  License: free for any use
+- Or **Press Start 2P** (Google Fonts) — https://fonts.google.com/specimen/Press+Start+2P
+  License: OFL 1.1
+
+**Procedure for each pack:**
+
+```bash
+mkdir -p client/assets/sprites/3rd-party/<pack-name>
+cd /tmp && curl -sL -o <pack>.zip "<pack URL>" && \
+  python3 -c "import zipfile; zipfile.ZipFile('<pack>.zip').extractall('/home/hanyu/projects/xiaodaoyiba-v3/client/assets/sprites/3rd-party/<pack-name>/')"
+# Then add LICENSES.md attribution entry per the existing template.
+```
+
+### §I.2 Replace ALL existing procedural sprite generation
+
+`client/scripts/globals/SpriteAtlas.gd` and any helper that produces
+character / house / tile imagery must be deleted or reduced to a thin
+loader that reads PNG files from `client/assets/sprites/3rd-party/`.
+
+Specifically:
+- `Character.gd` loads a `Texture2D` from one of the Pipoya / Penzilla
+  / Kenney character sprite sheets via `AnimatedSprite2D`. Each player
+  picks a different character variant (deterministic by playerId hash).
+  Walk cycle, idle bob, attack frames all come from the sprite sheet.
+- `House.gd` loads one of the Kenney Tiny Town building variants per
+  player. Each player has a visually distinct house (different roof
+  color, door type, window arrangement) by deterministic variant pick.
+- `Ground.tscn` swaps the procedural ground_atlas.png for tiles from
+  Kenney Tiny Town or Limezu Modern Tiles.
+- The LandingHero CJK BattleLog mock can stay procedural — it's UI
+  chrome rendering.
+
+### §I.3 BUG: BattleLog must not occlude the iso stage
+
+User report: 计分板还把游戏挡住了 (the scoreboard is blocking the
+game).
+
+The right-rail BattleLog currently steals horizontal space from the
+iso stage. Fix:
+
+- **Game stage must occupy ≥ 70% of viewport width** at every
+  supported aspect ratio (1280×800 desktop, 1920×1080 desktop,
+  375×667 mobile portrait, 667×375 mobile landscape).
+- BattleLog options (worker picks):
+  1. **Collapsed by default** with a toggle button; expand-on-tap to
+     read history. When expanded, ≤ 30% of viewport width.
+  2. **Bottom-sheet on mobile**, right-rail on desktop — but desktop
+     rail caps at 22% width and uses a translucent background so it
+     never visually occludes characters behind it.
+  3. **Floating ribbons** that fade in for the most recent entry only
+     (≤ 4 lines visible), holding ≥ 2.5s, then drift out. Full
+     history accessible via a small "history" icon.
+- Eval check: take a 1280×800 screenshot mid-action; iso stage
+  rendered area (where characters / houses live) must measure ≥ 896
+  pixels wide (70%). Anything less = fail.
+
+### §I.4 Cute-art quality bar — explicit reference screenshots
+
+For eval's mental compare, the bar is:
+
+- Stardew Valley: https://stardewvalley.net/wp-content/uploads/2024/02/SDV1_6_4.png
+- Pokemon Red/Blue overworld town: search "pokemon red pallet town"
+- Pokemon HeartGold overworld: search "pokemon heartgold new bark town"
+- Dave the Diver (top-down): search "dave the diver pixel art"
+- Sun Haven: search "sun haven indie game pixel art screenshot"
+- Stardew villager portraits: search "stardew valley character art"
+
+Eval must WebFetch one of these and side-by-side compare to a
+mid-action screenshot of our game. If our screenshot looks like
+"hand-drawn-by-a-grown-up indie game" the gate passes. If it looks
+like "polylines drawn by a script" it fails.
+
+### §I.5 Done = real PNG sprites in 3rd-party/, zero procedural entity draws, BattleLog ≤ 22% width
+
+Concrete ship gate (additive to all prior acceptance):
+
+```bash
+# 1. 3rd-party directory is non-empty AND has at least 3 packs
+ls client/assets/sprites/3rd-party/ | wc -l    # → ≥ 3 directories
+
+# 2. LICENSES.md has attributions for each pack
+grep -c 'source_url:' client/assets/sprites/3rd-party/LICENSES.md   # → ≥ 3
+
+# 3. No procedural entity draw calls
+grep -rn 'draw_line\|draw_circle\|draw_rect\|draw_polygon\|set_pixel' \
+  client/scripts/ | grep -v tests/ | grep -v particles/ | grep -v 9slice \
+  | grep -v editor_only | wc -l                                     # → 0
+
+# 4. Game stage width ≥ 70% at 1280×800 (eval Playwright screenshot + measure)
+
+# 5. Eval side-by-side: looks like Stardew/Pokemon, not polylines
+```
+
+§I overrides §H's permissive "three paths" — only path 1 (CC0/CC-BY
+download) and the already-finished path 3 (UI 9-slice procedural) are
+allowed for the entity layer. Path 2 procedural sprite generation is
+banned for characters, houses, ground tiles, and props going forward.
