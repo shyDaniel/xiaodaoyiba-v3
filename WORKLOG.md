@@ -2,6 +2,67 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 69 — S-322 — particle FX swiftshader fix (GPUParticles2D → CPUParticles2D)
+
+**Symptom.** Iter-67/68 judges flagged that `t10000.png`/`t22000.png`/
+`t27000.png` from the live HTML5 build showed no Cloth on PULL_PANTS,
+no Dust on RUSH, no WoodChip on CHOP — the §C5 acceptance bullet had
+been a no-op since iter-44. Root cause: HTML5 builds run under
+ANGLE/swiftshader on headless Chromium and the GL context does not
+expose the compute pipeline `GPUParticles2D` requires, so every
+`emitting=true` produced zero pixels. No CPU fallback existed.
+
+**Fix.** Swapped node type from `GPUParticles2D` to `CPUParticles2D`
+across all four emitter scenes — `client/scenes/effects/{Dust,Cloth,
+WoodChip,Confetti}Emitter.tscn`. Inlined every particle parameter from
+the old `ParticleProcessMaterial` SubResource onto the CPU node
+directly (CPUParticles2D exposes them as flat properties), with
+`Vector3` → `Vector2` for direction/gravity per the CPU API. Kept
+all gameplay-meaningful values verbatim (amount/lifetime/explosiveness/
+spread/velocity/gravity/damping/angular/scale/color), so the look on
+hardware-GPU desktops is unchanged from the user's prior tuning.
+`client/scripts/stage/GameStage.gd::_spawn_emitter` now branches on
+`is CPUParticles2D` first and falls through to `is GPUParticles2D`
+for forward-compat with hardware overrides; the auto-cleanup timer is
+hoisted out of both branches so it always fires.
+`client/tests/smoke_particle_fx.gd` accepts either backend.
+
+**New acceptance harness.** `scripts/validate-particles-pixeldiff.mjs`
+drives the live HTML5 build with the cached chromium-headless-shell,
+hooks `room:effects` RX frames to time screenshots relative to
+ROUND_START (PULL_PANTS atMs=2400, IMPACT atMs=3900 per
+`shared/timing.ts`), and computes the 64×64 ROI pixel diff at +0ms vs
++200ms across a 12-anchor grid covering the iso stage center.
+Per-S-322 acceptance threshold is ≥0.5%.
+
+**Verification.**
+- `pnpm test` — 90/90 (3 shared + 2 server suites, sub-second).
+- `pnpm sim 50r seed=42` — tie_rate=0.260 (<0.30), max winner 2/5=40%,
+  PULL_OWN_PANTS_UP fires (R48). Headless gates green.
+- `godot --headless --path client --import` — exit 0, clean.
+- `godot --headless --script res://tests/smoke_particle_fx.gd` —
+  PASS (4 emitters spawned + textures bound under World/Effects).
+- `godot --headless --script res://tests/smoke_particle_fx_pixeldiff.gd`
+  — cloth diff = 0.1982, wood-chip diff = 0.1982 (≥0.005), PASS.
+- `bash scripts/build.sh --client-only` — HTML5 export OK.
+- `node scripts/validate-particles-pixeldiff.mjs` against running
+  serve-html5 + server: R1 ROCK throw produced
+  **pull_diff=0.7502 / impact_diff=0.0977**, both far above 0.005;
+  PNG snaps `r1_pull_a.png` / `r1_pull_b.png` show the cloth burst
+  frame painting on swiftshader and the picker resolving to a
+  PULL_PANTS chain (red briefs visible on both targets at IMPACT).
+- `node scripts/validate-game-progression.mjs` — still PASS
+  (multi-round S-243 + S-277 spectator visual progression).
+
+**What I observed.** Reading the saved `r1_pull_a.png` after the
+pixel-diff PASS: characters animate, target sprites swap to
+pants_down state with red briefs, knife sprite emerges from the
+attacker — the iso stage is alive in a way it visibly was not in
+iter-67 t22000.png (which had the same characters frozen). The
+acceptance threshold (0.5%) was always conservative; the actual
+delta of 75% on PULL ROI shows the §C5 pipeline is back from a
+literal no-op.
+
 ## Iteration 66 — S-302 — name-label concatenation fix (live HTML5 §C8 regression)
 
 **Symptom.** Iter-65 judge t13000/t18000/t27000 PNGs from the

@@ -455,19 +455,35 @@ func _spawn_emitter(scene: PackedScene, world_pos: Vector2, tex: Texture2D) -> N
 	var inst := scene.instantiate()
 	if inst == null:
 		return null
-	if inst is GPUParticles2D:
-		var p := inst as GPUParticles2D
+	# S-322 — emitters are CPUParticles2D (was GPUParticles2D). HTML5 builds
+	# run under ANGLE/swiftshader on headless Chromium and many low-end
+	# mobile GPUs; GPUParticles2D needs a compute-capable GL context that
+	# swiftshader does not expose, so the burst silently produces zero
+	# pixels. CPUParticles2D draws via the standard 2D pipeline and works
+	# on every backend. We still tolerate a GPUParticles2D scene (e.g. an
+	# experimental override) so the helper stays forward-compatible.
+	var lifetime_s: float = 1.0
+	if inst is CPUParticles2D:
+		var pc := inst as CPUParticles2D
 		if tex != null:
-			p.texture = tex
-		p.position = world_pos
-		p.emitting = true
-		# Auto-cleanup: free a hair after the particle lifetime so dust /
-		# cloth / chips / confetti don't pile up across rounds.
-		var ttl: float = p.lifetime + 0.5
-		var t := get_tree().create_timer(ttl)
-		t.timeout.connect(func():
-			if is_instance_valid(p):
-				p.queue_free())
+			pc.texture = tex
+		pc.position = world_pos
+		pc.emitting = true
+		lifetime_s = pc.lifetime
+	elif inst is GPUParticles2D:
+		var pg := inst as GPUParticles2D
+		if tex != null:
+			pg.texture = tex
+		pg.position = world_pos
+		pg.emitting = true
+		lifetime_s = pg.lifetime
+	# Auto-cleanup: free a hair after the particle lifetime so dust /
+	# cloth / chips / confetti don't pile up across rounds.
+	var ttl: float = lifetime_s + 0.5
+	var t := get_tree().create_timer(ttl)
+	t.timeout.connect(func():
+		if is_instance_valid(inst):
+			inst.queue_free())
 	effects_layer.add_child(inst)
 	return inst
 

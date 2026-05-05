@@ -118,23 +118,30 @@ func _init() -> void:
 	# (the .tscn file ships with no texture — runtime sets one from
 	# SpriteAtlas. A null texture would draw 1×1 white points and the
 	# acceptance pixel-diff test would fail).
+	#
+	# S-322 — emitters are now CPUParticles2D (swiftshader-safe), but we
+	# still accept GPUParticles2D in case a future override switches back
+	# on hardware that supports compute. Both expose .texture / .one_shot
+	# / .lifetime / .emitting / .scene_file_path with the same semantics.
 	var emitters_seen := 0
 	for child in effects_layer.get_children():
-		if child is GPUParticles2D:
+		if child is CPUParticles2D or child is GPUParticles2D:
 			emitters_seen += 1
-			var p := child as GPUParticles2D
-			if p.texture == null:
+			var tex_val: Texture2D = child.get("texture")
+			var one_shot_val: bool = bool(child.get("one_shot"))
+			var scene_path: String = String(child.scene_file_path)
+			if tex_val == null:
 				failures.append("Emitter %s has null texture — SpriteAtlas wiring missing"
-					% [p.scene_file_path])
-			# Note: we don't assert emitting==true post-hoc because
-			# GPUParticles2D with one_shot=true + explosiveness>0 can
-			# self-clear the flag the same frame the burst fires (the
-			# burst is "complete" once spawned). The fact that the node
-			# was instantiated under World/Effects with a bound texture
-			# is what the renderer needs; the burst is fire-and-forget.
-			if not p.one_shot:
+					% [scene_path])
+			# Note: we don't assert emitting==true post-hoc because a
+			# one_shot=true + explosiveness>0 burst can self-clear the
+			# flag the same frame it fires (the burst is "complete" once
+			# spawned). The fact that the node was instantiated under
+			# World/Effects with a bound texture is what the renderer
+			# needs; the burst is fire-and-forget.
+			if not one_shot_val:
 				failures.append("Emitter %s should be one_shot=true so each phase fires a discrete burst"
-					% [p.scene_file_path])
+					% [scene_path])
 	if emitters_seen < 4:
 		failures.append("expected ≥4 emitters spawned across phases, saw %d" % emitters_seen)
 
@@ -142,7 +149,11 @@ func _init() -> void:
 
 func _has_emitter_with_path(layer: Node, scene_path: String) -> bool:
 	for child in layer.get_children():
-		if child is GPUParticles2D and child.scene_file_path == scene_path:
+		# S-322 — accept either particle backend; CPUParticles2D is the
+		# swiftshader-safe default, GPUParticles2D is tolerated for
+		# forward-compat with hardware-only overrides.
+		if (child is CPUParticles2D or child is GPUParticles2D) \
+			and child.scene_file_path == scene_path:
 			return true
 	return false
 
