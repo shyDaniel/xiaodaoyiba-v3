@@ -2,6 +2,19 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 4 — S-004 — port server/sim.ts headless CLI verbatim from v2
+
+**Did:** Replaced the 3-line `console.log` placeholder at `server/src/sim.ts` with the verbatim port from `xiaodaoyiba-v2/packages/server/src/sim.ts` (738 lines). Also ported `server/src/sim.test.ts` (136 lines, 7 vitest specs covering the strict-mode exit-code policy + the canonical seed=42 / 4-bot acceptance run + the known-bad mirror-only exit-1 guard). Every symbol the sim imports from `@xdyb/shared` (`ACTION_TOTAL_MS`, `PHASE_T_REVEAL`, `ROUND_TOTAL_MS`, `BOT_STRATEGIES`, `getBotStrategy`, `isBotKind`, `resetBotCaches`, `resolveRound`, `resolveRps`, `seededRng`, `SHARED_PACKAGE_VERSION`, `ActionKind`, `BotContext`, `BotKind`, `BotStrategy`, `Effect`, `PlayerState`, `RoundHistoryEntry`, `RoundInputs`, `Rng`, `RpsChoice`) is already exported by the S-002 barrel — the port compiled clean with zero shimming.
+
+**Verified (acceptance for S-004 = FINAL_GOAL §A1–A4):**
+- `pnpm sim --players 4 --bots counter,random,iron,mirror --winner-strategy random-target+random-action --rounds 50 --seed 42` → **5 games, 50 rounds, 13 ties, tie_rate=0.260, max winner share = 2/5 = 0.40, PULL_OWN_PANTS_UP fires twice (rounds 28 & 48), duration_ms=8** (≪ 2000ms budget). All §A2 budgets pass: tie_rate < 0.30 ✓, no winner > 0.60 ✓, PULL_OWN_PANTS_UP ≥ 1 ✓.
+- Output preserves all v6 columns: `round`, `throws_kv`, `winners`, `losers`, `action`, `target`, `winner_picked_target`, `winner_picked_action`, `narration`. The `phase=reveal` row carries `throws_kv=[id:choice,...]` per §H2; the `phase=action` row carries the full agency record.
+- `pnpm test` → **90 tests passed (79 shared + 11 server, including 7 new sim specs) in <1s**. Server suite now covers: parseArgs strict/no-strict policy; canonical seed=42 4-bot run exits 0 with `seed=42` in summary and no `FAIL: §A2 budget breach` on stderr; known-bad 2-player mirror,mirror seed=1 exits 1 under `--strict`; same config with `--no-strict` exits 0 but warns; short 10-round run is non-strict by default; `--help` exits 0; bad flag exits 2.
+- `pnpm typecheck` → green across all 3 workspaces.
+- The Definition of Done shell snippet from FINAL_GOAL is now satisfiable for the §A row: the headless gate exits 0 with the right distribution.
+
+**Notes for next iteration:** S-006 (`shared/scripts/codegen-timing.ts` → `client/scripts/generated/Timing.gd`) is a small standalone task that unblocks the Godot client without depending on S-005. After that, S-005 (the entire `client/` Godot 4.3 project tree — `project.godot`, `export_presets.cfg`, scenes/{Main,Landing,Lobby,Game,stage/*,characters/*,effects/*,ui/*}.tscn, scripts/globals/{Net,GameState,Audio}.gd, scripts/stage/{GameStage,EffectPlayer,Camera}.gd, scripts/characters/Character.gd) becomes the longest-pole bottleneck. Until S-005 lands, the playwright + chrome-devtools MCPs cannot be exercised because there is no rendered surface — `pnpm serve` fails with "build first" because `client/build/index.html` does not exist.
+
 ## Iteration 3 — S-003 — port server/ Socket.IO entry + Room + matchmaking from v2
 
 **Did:** Copied `xiaodaoyiba-v2/packages/server/src/{index.ts,matchmaking.ts,rooms/Room.ts,index.test.ts}` verbatim into `server/src/`. The v3 `@xdyb/shared` barrel already re-exports every symbol the port needs (`SHARED_PACKAGE_VERSION`, `Effect`, `resolveRound`, `resolveRps`, `pickStrategyForIndex`, `getBotStrategy`, `seededRng`, `Rng`, `BotKind`, `BotStrategy`, `RoundHistoryEntry`, `RoundInputs`, `ActionKind`, `RpsChoice`, `PlayerState`, `ROUND_TOTAL_MS`, `TIE_NARRATION_HOLD_MS`) — no shimming needed. Switched `server/build` to a `tsup.config.ts` that sets `noExternal: ['@xdyb/shared']`, so `node server/dist/index.js` boots without needing a separately-built copy of the workspace shared package on disk.
