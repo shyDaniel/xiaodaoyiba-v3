@@ -6,6 +6,7 @@ Casual web multiplayer RPS-elimination game based on the Chinese nursery rhyme
 server.
 
 ![xiaodaoyiba v3 — R1 REVEAL phase static mock: 4 players (Bot-A, Bot-B, Hong, Ming) on an iso 45° stage with shingle-roofed houses, knife sprite in Bot-A's hand, persistent red briefs on Hong (ALIVE_PANTS_DOWN), BattleLog rail with timestamped rows on the right, ✊✋✌ HandPicker chips along the bottom](./docs/screenshots/action.png)
+<sub>(static design mock — composed offline by `client/tests/render_action_static.gd`; the live HTML5 build at `pnpm serve` differs in art workflow but renders the same scene tree. See [WORKLOG.md](./WORKLOG.md) iter 17 for the live `screenshots/live-landing.png` capture.)</sub>
 
 See [`FINAL_GOAL.md`](./FINAL_GOAL.md) for the full design brief and
 [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the scene-tree / protocol /

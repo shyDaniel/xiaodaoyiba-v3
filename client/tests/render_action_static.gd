@@ -167,26 +167,33 @@ func _init() -> void:
 	_fill_triangle(img, 0, 240, 200, 80, 320, 240, Color(0.40, 0.45, 0.55, 1.0))
 	_fill_triangle(img, 220, 240, 380, 120, 540, 240, Color(0.45, 0.50, 0.60, 1.0))
 
-	# Iso ground tiles — diamond grid.
+	# Iso ground tiles — diamond grid. S-201: lattice expanded from
+	# ±3 → ±5 grid units so the wider house anchors (rows now ±160 px
+	# instead of ±80 px) still sit on iso ground rather than floating
+	# on grass. 11×11 cells covers the visible play area.
 	var tile_w := 96
 	var tile_h := 48
 	var origin_x := W / 2
 	var origin_y := H / 2 + 40
-	for gy in range(-3, 4):
-		for gx in range(-3, 4):
+	for gy in range(-5, 6):
+		for gx in range(-5, 6):
 			var ix := origin_x + (gx - gy) * tile_w / 2
 			var iy := origin_y + (gx + gy) * tile_h / 2
 			var col := Color(0.36, 0.58, 0.32, 1.0) if (gx + gy) % 2 == 0 else Color(0.30, 0.52, 0.28, 1.0)
 			_fill_diamond(img, ix, iy, tile_w / 2, tile_h / 2, col)
 
-	# Place houses + characters at four iso anchor points. The right
-	# anchors are pulled left slightly so characters don't sit beneath
-	# the BattleLog rail.
+	# Place houses + characters at four iso anchor points. S-201:
+	# row spacing widened from 160 → 320 px so a back-row pill anchored
+	# 199 px above its roof peak no longer bleeds into the front-row
+	# house body / wall — each pill now sits in clear sky over its own
+	# roof. Right column pulled inward (origin_x + 200 → +120) so the
+	# character placed at anchor.x + 100 (= origin_x + 220 = 860) does
+	# NOT clip into the BattleLog rail at x ≥ 1000.
 	var anchors := [
-		Vector2i(origin_x - 280, origin_y - 80),    # top-left
-		Vector2i(origin_x + 200, origin_y - 80),    # top-right
-		Vector2i(origin_x - 280, origin_y + 80),    # bot-left
-		Vector2i(origin_x + 200, origin_y + 80),    # bot-right
+		Vector2i(origin_x - 260, origin_y - 160),   # top-left
+		Vector2i(origin_x + 120, origin_y - 160),   # top-right
+		Vector2i(origin_x - 260, origin_y + 160),   # bot-left
+		Vector2i(origin_x + 120, origin_y + 160),   # bot-right
 	]
 
 	for i in range(4):

@@ -2,6 +2,69 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 19 — S-201 — README hero: pill ↔ roof-label honesty fix
+
+**Bug.** The committed `docs/screenshots/action.png` (rendered by
+`client/tests/render_action_static.gd`) had two visible compositional
+defects that a first-time HN visitor would clock immediately:
+
+1. **Pill ↔ roof-label collision.** With the old anchor layout
+   (`origin_y ± 80`, rows 160 px apart) every front-row pill was
+   anchored at `y = anchor.y - 160 - pill_h - 6 = 241`, which landed
+   *inside* the back-row house's wall area (back-row body spans
+   `y_top - 160 → y_top` = `120 → 280`). Result: the "Hong" and "Ming"
+   pills appeared to label the back-row Bot-A / Bot-B houses, while
+   the actual "Bot-A" / "Bot-B" pills floated higher up in clear sky.
+   Two pills per back-row house, semantically contradictory.
+2. **BattleLog rail clipping.** Right-column character at
+   `anchor.x + 100 = 940`, BattleLog at `W - 280 = 1000` → 60 px
+   margin felt tight; with the right-column house body itself ending
+   at `anchor.x + 96 = 936`, the character partially overlapped the
+   rail at typical viewer scales.
+3. **Hero honesty.** README's hero alt-text and surrounding body text
+   admitted "static mock" only on line 74; nothing visible *next to
+   the image itself* told the reader the hero was offline-composed.
+
+**Fix.** Three small, surgical changes in
+`client/tests/render_action_static.gd` and `README.md`:
+
+- **Row spacing widened** from `±80` → `±160` px (320 px between
+  rows). Front-row pills now anchor at `y = 560 - 199 = 361`, a clean
+  121 px below the back-row house bottom edge (`y = 240`). No pill
+  overlaps any house body other than its own.
+- **Right column pulled inward** from `origin_x + 200` → `+120`.
+  Right-column character at `anchor.x + 100 = 860`, draw width 72 →
+  rightmost pixel at 932. BattleLog rail starts at 1000 → 68 px
+  clear margin. No clipping.
+- **Iso lattice expanded** from `±3` → `±5` grid units (11×11 cells)
+  so the wider house anchors still sit on iso ground rather than
+  floating on flat grass. The diamond-tile aesthetic of §C1 is now
+  fully visible across the whole play area.
+- **README hero caption** added directly below the image markdown:
+  `<sub>(static design mock — composed offline by …)</sub>`. Honesty
+  is now visible at-a-glance, not buried in body paragraph 5.
+
+**Verification.** Re-rendered `docs/screenshots/action.png` (1280×720,
+`godot --headless --path client --script
+res://tests/render_action_static.gd` → exit 0). Opened the new PNG
+with the Read tool: each of the four pills (Bot-A pink-roof top-left,
+Bot-B purple-roof top-right, Hong green-roof bot-left with red-briefs
+character in front, Ming yellow-roof bot-right) labels exactly one
+house with no other label on that house. Knife sprite still visible
+in Bot-A's hand (top-left). Persistent shame still visible on Hong
+(bot-left). BattleLog rail uncovered by any character. `grep -c
+'static design mock' README.md` → 1, on the line directly under the
+hero markdown. `pnpm test` → **90/90 green** (79 shared + 11 server)
+in <1s. No source changes outside the static mock + README.
+
+**Acceptance test (verbatim from S-201 brief) — passes:**
+- README contains the literal string `(static design mock` within 3
+  lines of the hero image markdown ✓ (it's on the very next line)
+- Static mock's pills are repositioned so each pill labels a distinct
+  house with no roof-label conflict ✓ (verified by visual diff:
+  Bot-A → top-left, Bot-B → top-right, Hong → bot-left, Ming →
+  bot-right; no two pills overlap the same house)
+
 ## Iteration 18 — S-192 — anglicise live HTML5 UI strings (CJK-tofu regression)
 
 **Problem.** `screenshots/live-landing.png` rendered every visible CJK
