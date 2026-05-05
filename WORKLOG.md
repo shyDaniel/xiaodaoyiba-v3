@@ -1775,3 +1775,64 @@ agency-broken since the schema was renamed.
   picker (e.g. via the iterative MCP rubric once browser MCPs
   are repaired) ≥2 named target chips will render and be
   individually clickable.
+
+## S-327 — Lobby is themed: knife + houses + Chinese rhyme couplet (iter-70)
+
+**Symptom (judge §C11 / 02-after-bots.png):** the lobby was a
+yellow-bordered Material PanelContainer with Add Bot/Start/Leave
+buttons floating over a dark-navy ColorRect void. Lobby.tscn
+contained zero theme nodes — no knife sprite, no house preview, no
+rhyme couplet — so the visual transition from landing→lobby→game
+was a hard cut from a beautifully themed iso preview into an admin
+dialog and back into a themed game stage. A first-time visitor
+would close the tab on the lobby alone.
+
+**Fix.** Lobby.tscn re-dressed with four pieces of theme content,
+each paired with a runtime-wiring path in Lobby.gd:
+- (a) Sky+horizon+two parallax mountain ranges+grass painted
+  directly on the Lobby Control using the same palette as
+  Background.tscn / Landing.tscn so the lobby→game transition
+  shares the world.
+- (b) The Chinese rhyme couplet `小刀一把，来到你家 / 扒你裤衩，
+  直接咔嚓！` rendered as two centered Labels at 44px in the
+  yellow palette font with a 8px outline, plus a Latin
+  transliteration subline at 18px so the rhyme is legible in any
+  browser whether or not it has a system CJK font fallback.
+- (c) A floating knife sprite — `KnifeAnchor/Knife` Sprite2D
+  re-using `SpriteAtlas.knife_texture`, scaled 2.4×, rotated
+  -0.35 rad, with a soft Polygon2D shadow underneath. Lobby.gd
+  attaches the texture in `_apply_theme_textures` after a
+  call_deferred so the autoload texture-build pass has settled,
+  and starts a sine-eased ±4px Y bob loop on the anchor so a
+  static screenshot at any moment catches the knife mid-hover.
+- (d) Three sample iso houses behind/right of the player list
+  (`HouseRow/{Left,Center,Right}/Sprite`), each with the same
+  procedural atlas texture but a distinct roof modulate —
+  peach-pink, cream-yellow, mint-green — so the §C11 "≥3 distinct
+  house color schemes" gate is visible in the lobby viewport
+  before the user ever clicks Start.
+The Card panel was shrunk from 520×520 (covering ~50% of viewport)
+to 436×356 anchored bottom-left so the rhyme + knife + houses
+dominate the first-impression frame instead of competing with an
+admin card.
+
+**Verification:**
+- New `client/tests/smoke_lobby_theme.gd` asserts the rhyme labels
+  contain `小刀` and `咔嚓` substrings, the knife Sprite2D has a
+  non-null texture, all three house Sprite2D textures are wired,
+  and the three house modulates are pairwise distinct. PASS.
+- Existing `client/tests/smoke_lobby.gd` (Lobby instantiation +
+  @onready bind + member-row count) still PASS.
+- Existing `client/tests/smoke_lobby_keybinds.gd` (A/S/L
+  dispatch with host gating) still PASS.
+- `client/tests/render_lobby.gd` produces /tmp/xdyb_lobby.png
+  (1280×720) showing CJK rhyme rendered in yellow palette, the
+  knife sprite hovering between the rhyme and the houses, three
+  distinctly tinted houses, and parallax sky/mountains/grass
+  background — eyeballed as the §C11 viral-aesthetic gate.
+- `pnpm test` → 90/90 (shared 79 + server 11) green.
+- `pnpm sim --players 4 --bots counter,random,iron,mirror
+  --winner-strategy random-target+random-action --rounds 50
+  --seed 42` → tie_rate=0.260 (<0.30), max winner 2/5=40%
+  (<60%), PULL_OWN_PANTS_UP fires in R48 — sim gate green.
+- `godot --headless --path client/ --import` exit 0, no errors.

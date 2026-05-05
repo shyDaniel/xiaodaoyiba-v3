@@ -41,6 +41,19 @@ extends Control
 @onready var _start: Button = $Card/V/Buttons/Start
 @onready var _leave: Button = $Card/V/Buttons/Leave
 
+# Themed background nodes (S-327). Populated from SpriteAtlas one frame
+# after _ready() so the autoload's texture-build pass has finished.
+@onready var _knife: Sprite2D = $KnifeAnchor/Knife
+@onready var _knife_anchor: Node2D = $KnifeAnchor
+@onready var _house_left: Sprite2D = $HouseRow/HouseLeft/Sprite
+@onready var _house_center: Sprite2D = $HouseRow/HouseCenter/Sprite
+@onready var _house_right: Sprite2D = $HouseRow/HouseRight/Sprite
+
+# Tween that drives the gentle ±4px Y bob on the floating knife — a
+# constant idle animation so a static lobby screenshot still feels
+# alive and a viewer immediately reads "this is a 刀-themed game".
+var _knife_bob_tween: Tween = null
+
 # Cached host/member state so the keybind handler can apply the same
 # gating the buttons use without re-reading the snapshot every key.
 var _is_host: bool = false
@@ -61,9 +74,74 @@ func _ready() -> void:
 	GameState.snapshot_changed.connect(_render)
 	_render(GameState.snapshot)
 	_install_js_bridge()
+	# Populate the themed background once the SpriteAtlas autoload's
+	# texture-build pass has run. SpriteAtlas._ready() is synchronous,
+	# but it executes during the same frame — yielding once guarantees
+	# its var assignments have settled before we read them.
+	_apply_theme_textures.call_deferred()
 
 func _exit_tree() -> void:
 	_uninstall_js_bridge()
+	if _knife_bob_tween != null and _knife_bob_tween.is_valid():
+		_knife_bob_tween.kill()
+		_knife_bob_tween = null
+
+# --- theme dressing (S-327) -----------------------------------------------
+#
+# Lobby was a yellow-bordered admin card on a dark void; the §C11 viral
+# aesthetic gate demanded ≥3 distinct themed elements visible before
+# the user clicks Start. We add:
+#   (a) the Chinese rhyme couplet at the top (literal CJK label text)
+#   (b) a hovering knife sprite re-using SpriteAtlas.knife_texture
+#   (c) three sample iso houses behind the player list, with three
+#       distinct roof tints
+#   (d) sky/mountains/grass painted directly on the Lobby Control so
+#       the lobby→game transition shares the Game.tscn palette
+# All of (a)-(d) are wired in Lobby.tscn; this method just attaches
+# the runtime textures + tweens.
+func _apply_theme_textures() -> void:
+	var sa: Node = get_node_or_null("/root/SpriteAtlas")
+	# Knife sprite — required for the §C11 (a) "knife sprite hash !=
+	# background" acceptance. If the atlas is somehow missing (the
+	# autoload failed), the rotation + KnifeShadow polygon below the
+	# Sprite2D still reads as a knife silhouette in screenshots.
+	if sa != null and _knife != null:
+		var knife_tex: Texture2D = sa.knife_texture
+		if knife_tex != null:
+			_knife.texture = knife_tex
+	_start_knife_bob()
+	# Three houses with three distinct roof tints — left=peach, center
+	# =cream-yellow, right=mint. The roof modulate on the procedural
+	# atlas leaves the wall beige + shingle bands legible while the
+	# white roof pixels accept the tint. Same approach LandingHero.gd
+	# uses on the iso preview houses.
+	if sa != null and not sa.house_textures.is_empty():
+		var house_tex: Texture2D = sa.house_textures[0]
+		if _house_left != null:
+			_house_left.texture = house_tex
+			_house_left.modulate = Color(1, 1, 1, 1).lerp(Color(1.00, 0.78, 0.78, 1.0), 0.55)
+		if _house_center != null:
+			_house_center.texture = house_tex
+			_house_center.modulate = Color(1, 1, 1, 1).lerp(Color(1.00, 0.95, 0.78, 1.0), 0.55)
+		if _house_right != null:
+			_house_right.texture = house_tex
+			_house_right.modulate = Color(1, 1, 1, 1).lerp(Color(0.82, 1.00, 0.84, 1.0), 0.55)
+
+func _start_knife_bob() -> void:
+	# Idle ±4 px Y bob on a 1.4-second sine-eased loop. The knife
+	# rotates via its tscn rotation; the anchor's position handles the
+	# bob so the rotation stays stable. Using a SceneTreeTween in
+	# loop()-mode means a static lobby screenshot taken at any moment
+	# still catches the knife mid-bob.
+	if _knife_anchor == null:
+		return
+	if _knife_bob_tween != null and _knife_bob_tween.is_valid():
+		_knife_bob_tween.kill()
+	var base_y: float = _knife_anchor.position.y
+	_knife_bob_tween = create_tween().set_loops()
+	_knife_bob_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_knife_bob_tween.tween_property(_knife_anchor, "position:y", base_y - 4.0, 0.7)
+	_knife_bob_tween.tween_property(_knife_anchor, "position:y", base_y + 4.0, 0.7)
 
 func _input(ev: InputEvent) -> void:
 	if not (ev is InputEventKey) or not ev.pressed or ev.echo:
