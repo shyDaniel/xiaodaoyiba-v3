@@ -13,13 +13,17 @@ coverage/
 .playwright-mcp/
 
 # Godot
+# .godot/ is the per-machine import cache and must be ignored. The
+# per-asset .import sidecar files (e.g. NotoColorEmoji.ttf.import)
+# carry import-time params (disable_embedded_bitmaps, fallbacks, …)
+# that need to round-trip through git, so they are NOT ignored here
+# despite older Godot project templates suggesting otherwise.
 client/.godot/
 client/.import/
 client/build/
 client/export.cfg
 client/export_credentials.cfg
 *.translation
-*.import
 
 # Smoke-test screenshots dumped at the repo root by playwright drives
 /*.png

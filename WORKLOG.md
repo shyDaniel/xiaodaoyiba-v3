@@ -2,6 +2,83 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 8 — S-109 — render ✊✋✌ via NotoColorEmoji CBDT/CBLC font (§C9)
+
+**Bug:** §C9 says "REVEAL phase shows every alive player's throw glyph
+(✊ ROCK / ✋ PAPER / ✌️ SCISSORS, ≥ 64px) above their character" and
+the HandPicker offers the same three glyphs as buttons. Both rendered
+as ▢ missing-glyph boxes because Godot's default theme font has no
+emoji codepoints. Same root cause for both surfaces.
+
+**Fix (font asset):** dropped
+`client/assets/fonts/NotoColorEmoji.ttf` (9.8MB,
+`NotoColorEmoji-noflags.ttf` from googlefonts/noto-emoji main).
+Selected the CBDT/CBLC embedded-bitmap variant rather than the
+COLR/CPAL or SVG variants because Godot 4.3's font renderer
+ships first-class CBDT/CBLC support; COLR/CPAL is silently
+unsupported, and Godot's SVG-in-OT path has known incomplete
+coverage. The accompanying `.import` sidecar overrides
+**`disable_embedded_bitmaps=false`** (Godot's default is `true`,
+which would suppress the very bitmap strikes that draw the colour
+glyph) and sets `allow_system_fallback=true` so the OS-level Noto
+Sans CJK still serves the Chinese labels.
+
+**Fix (gitignore):** removed the `*.import` wildcard from
+`.gitignore`. The `.import` sidecar is what carries the
+`disable_embedded_bitmaps=false` override; if it isn't in git, a
+fresh clone would re-import with the Godot default and silently
+break emoji rendering. Per-machine cache stays ignored
+(`client/.godot/`, `client/.import/`).
+
+**Fix (HandPicker.tscn):** the buttons used to read "✊ 石头" /
+"✋ 布" / "✌ 剪刀" in a single text run, which mixed CJK and emoji
+on one font slot. Restructured to a two-layer layout: button face
+shows pure emoji ("✊"/"✋"/"✌") at `font_size=64` with the emoji
+font; a child Label anchored to the bottom of each button shows
+the CJK label ("石头"/"布"/"剪刀") at `font_size=16` with the
+default theme font. Buttons are now `180×100` so the emoji has
+breathing room.
+
+**Fix (Character.tscn):** added the emoji FontFile as
+`ext_resource id=2_emoji` and applied it to the existing
+`ThrowGlyph` Label as `theme_override_fonts/font` with
+`theme_override_font_sizes/font_size = 64`. Repositioned the
+label to `offset_top = -160 / offset_bottom = -96` so the glyph
+floats clearly above the 96-px character sprite. Also added a
+black outline (`outline_size=6`) so the glyph reads against any
+background tile.
+
+**Verified:**
+- `pnpm test` → 90 tests passed (79 shared + 11 server) — no
+  regressions in the gameplay engine from the asset add.
+- `godot --path client --import` succeeds; the `.fontdata` cache
+  populates under `client/.godot/imported/`.
+- `godot --path client --script res://tests/render_game.gd
+  --quit-after 30` (no `--headless`; uses WSLg X11 + Mesa
+  llvmpipe so `get_viewport().get_texture()` actually allocates)
+  writes `/tmp/xdyb_action.png`. The PNG shows all four
+  characters spawned (机器人乙, 小明, 机器人甲, 小红), each
+  carrying its assigned reveal glyph in full colour above its
+  head: ✊ over 机器人乙 + 小明, ✋ over 小红, ✌ over
+  机器人甲. The HandPicker strip below shows the three buttons
+  as ✊石头 / ✋布 / ✌剪刀, emoji in colour at 64 px, CJK in
+  white at 16 px. 机器人甲's `ALIVE_PANTS_DOWN` red briefs
+  render correctly. PhaseBanner reads `R1 · REVEAL`.
+  BattleLog rail shows the 战斗日志 header.
+
+**Test added:** `client/tests/render_game.gd` injects a 4-player
+REVEAL snapshot into `GameState`, instantiates `Game.tscn`, calls
+`Character.show_throw(glyph)` per-player to bypass the auto-hide
+timer baked into `GameStage.show_rps_reveal()`, then dumps
+`/tmp/xdyb_action.png`. Asserts `n_chars >= 4` and that
+HandPicker has 3 buttons before exit-0.
+
+**Outstanding (next iteration candidates):** §C11 viral aesthetic
+gate (sprites still procedural); §A4 codegen-timing.ts; §E5
+GitHub Actions workflow; characters still render inside house
+walls in Game.tscn at certain zoom levels; parallax mountain
+band sometimes clips off-viewport top.
+
 ## Iteration 5 — S-005 — scaffold the Godot 4.3 client tree
 
 **Did:** Built the entire `client/` Godot project tree from empty.

@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://bxdyb_handpicker_v1"]
+[gd_scene load_steps=3 format=3 uid="uid://bxdyb_handpicker_v1"]
 
 [ext_resource type="Script" path="res://scripts/ui/HandPicker.gd" id="1_hp"]
+[ext_resource type="FontFile" uid="uid://c8suekfail418" path="res://assets/fonts/NotoColorEmoji.ttf" id="2_emoji"]
 
 [node name="HandPicker" type="Control"]
 layout_mode = 3
@@ -11,24 +12,72 @@ script = ExtResource("1_hp")
 layout_mode = 0
 offset_left = 0.0
 offset_top = 0.0
-offset_right = 480.0
-offset_bottom = 90.0
+offset_right = 600.0
+offset_bottom = 110.0
 theme_override_constants/separation = 16
 
 [node name="Rock" type="Button" parent="H"]
-custom_minimum_size = Vector2(140, 80)
+custom_minimum_size = Vector2(180, 100)
 layout_mode = 2
-text = "✊ 石头"
-theme_override_font_sizes/font_size = 22
+text = "✊"
+theme_override_fonts/font = ExtResource("2_emoji")
+theme_override_font_sizes/font_size = 64
+
+[node name="RockLabel" type="Label" parent="H/Rock"]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -40.0
+offset_top = -22.0
+offset_right = 40.0
+offset_bottom = -2.0
+horizontal_alignment = 1
+text = "石头"
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.92, 0.92, 0.92, 1)
 
 [node name="Paper" type="Button" parent="H"]
-custom_minimum_size = Vector2(140, 80)
+custom_minimum_size = Vector2(180, 100)
 layout_mode = 2
-text = "✋ 布"
-theme_override_font_sizes/font_size = 22
+text = "✋"
+theme_override_fonts/font = ExtResource("2_emoji")
+theme_override_font_sizes/font_size = 64
+
+[node name="PaperLabel" type="Label" parent="H/Paper"]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -40.0
+offset_top = -22.0
+offset_right = 40.0
+offset_bottom = -2.0
+horizontal_alignment = 1
+text = "布"
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.92, 0.92, 0.92, 1)
 
 [node name="Scissors" type="Button" parent="H"]
-custom_minimum_size = Vector2(140, 80)
+custom_minimum_size = Vector2(180, 100)
 layout_mode = 2
-text = "✌ 剪刀"
-theme_override_font_sizes/font_size = 22
+text = "✌"
+theme_override_fonts/font = ExtResource("2_emoji")
+theme_override_font_sizes/font_size = 64
+
+[node name="ScissorsLabel" type="Label" parent="H/Scissors"]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -40.0
+offset_top = -22.0
+offset_right = 40.0
+offset_bottom = -2.0
+horizontal_alignment = 1
+text = "剪刀"
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.92, 0.92, 0.92, 1)
