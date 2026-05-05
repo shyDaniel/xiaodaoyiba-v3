@@ -1,0 +1,47 @@
+# Codegen drift gate (FINAL_GOAL §A4).
+#
+# The Godot client autoloads client/scripts/generated/Timing.gd, which is
+# derived from shared/src/game/timing.ts via `pnpm codegen:timing`. If a
+# contributor edits timing.ts but forgets to regenerate Timing.gd (or
+# vice-versa), the sim/server and the rendering client will silently
+# disagree about phase durations. This workflow re-runs codegen on every
+# push and fails with a non-zero exit if the regenerated file does not
+# match what is committed.
+#
+# Kept narrow on purpose — full lint/test/sim/godot-import CI is wired
+# separately under .github/workflows/ci.yml when §E5 lands.
+name: codegen-drift
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  timing-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Regenerate Timing.gd from timing.ts
+        run: pnpm codegen:timing
+
+      - name: Fail if Timing.gd drifted from timing.ts
+        run: |
+          if ! git diff --exit-code client/scripts/generated/Timing.gd; then
+            echo "::error::client/scripts/generated/Timing.gd is out of sync with shared/src/game/timing.ts."
+            echo "::error::Run \`pnpm codegen:timing\` locally and commit the regenerated file."
+            exit 1
+          fi

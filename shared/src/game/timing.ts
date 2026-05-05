@@ -45,3 +45,17 @@ export const ACTION_TOTAL_MS = 3200;
 export const ROUND_TOTAL_MS = PHASE_T_REVEAL + ACTION_TOTAL_MS;
 export const TIE_NARRATION_HOLD_MS = 2000;
 export const SHAME_FRAME_HOLD_MS = 400;
+
+// Camera cinematic timing (FINAL_GOAL §C2). Held here so Camera.gd and
+// AnimationPlayer tracks share one source. ZOOM_OUT happens after IMPACT.
+export const ZOOM_IN_DUR_MS = 600;
+export const ZOOM_HOLD_MS = 800;
+export const ZOOM_OUT_DUR_MS = 400;
+export const ZOOM_TARGET = 1.6;
+
+// Winner-choice budget (FINAL_GOAL §H3 / §C10). Server enforces
+// WINNER_CHOICE_BUDGET_MS as the hard ceiling; client UI picker auto-picks
+// at PICKER_AUTO_PICK_MS so the human sees the dialog close before the
+// server-side fallback fires.
+export const WINNER_CHOICE_BUDGET_MS = 9000;
+export const PICKER_AUTO_PICK_MS = 5000;

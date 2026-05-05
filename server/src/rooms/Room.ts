@@ -12,6 +12,7 @@
 import {
   ROUND_TOTAL_MS,
   TIE_NARRATION_HOLD_MS,
+  WINNER_CHOICE_BUDGET_MS,
   resolveRps,
   type ActionKind,
   type BotKind,
@@ -28,14 +29,10 @@ import {
   seededRng,
 } from '@xdyb/shared';
 
-/** §H3 max time the room waits for human winners to submit a target+action
- *  before falling back to engine auto-pick. Mirrors the client picker
- *  budget so a client that ignores the window doesn't stall the room.
- *  Bumped 5000 → 9000 by S-524 — the client picker now defaults to 8s
- *  and pauses on hover; the server allows one extra second of slack so
- *  the user's commit always wins the round-trip race against the auto-
- *  pick fallback. */
-const WINNER_CHOICE_BUDGET_MS = 9000;
+// §H3 winner-choice budget (the room waits this long for human winners
+// to submit a target+action before falling back to engine auto-pick) is
+// imported from shared/game/timing.ts so it stays in lockstep with the
+// generated Timing.gd and the client picker UI hold.
 
 export interface RoomMember {
   /** Stable id; matches socket.id for humans, derived id for bots. */
