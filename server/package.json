@@ -6,7 +6,7 @@
   "main": "./src/index.ts",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsup src/index.ts src/sim.ts --format esm --target node20 --out-dir dist --clean",
+    "build": "tsup",
     "start": "node dist/index.js",
     "sim": "tsx src/sim.ts",
     "typecheck": "tsc --noEmit",

@@ -51,12 +51,46 @@ well-defined location.
   required for Godot 4 HTML5 threads (SharedArrayBuffer); a vanilla
   `npx serve` would fail to load the game with a CORS error.
 
-## Effect[] protocol (pending S-003 / S-004)
+## Effect[] protocol (S-003 — server side landed; S-004 — sim CLI pending)
 
-The server emits a JSON `Effect[]` per room phase tick. Both the live
-Godot client and the headless sim consume the same array. v3 adds two
-new effect types relative to v2: `RPS_REVEAL` (per-player throw glyph
-hold, 1500ms) and `ZOOM_IN` / `ZOOM_OUT` (camera cinematic markers).
+The server emits a JSON `Effect[]` per resolved round. Both the live
+Godot client and the (in-progress) headless sim consume the same
+array. The full Effect union is declared in
+`shared/src/game/effects.ts` and re-exported through `@xdyb/shared`;
+`Room.resolveCurrentRound()` calls `resolveRound(...)` (also from
+`@xdyb/shared`) and broadcasts the result on the `room:effects`
+Socket.IO channel via `RoomBroadcaster.emitRound`. Each Effect carries
+an `atMs` offset; the client's EffectPlayer schedules scene-tree calls
+at those offsets, so the server only throttles round-to-round
+transitions (`ROUND_TOTAL_MS = 4700ms`, `TIE_NARRATION_HOLD_MS =
+2000ms`), never per-phase ticks.
+
+Socket.IO channels (server → client):
+- `room:snapshot` — `RoomSnapshot` on every membership / state change.
+- `room:effects` — `RoundBroadcast` ({round, effects[], narration, isGameOver, winnerId}).
+- `room:winnerChoice` — `WinnerChoicePrompt` to one socket when a human winner has §H3 agency.
+- `room:error` — `{code, message}` validation rejections.
+
+Socket.IO channels (client → server):
+- `room:create {nickname}`, `room:join {code, nickname}`, `room:leave`.
+- `room:addBot`, `room:start`, `room:rematch` (host-only).
+- `room:choice {choice: 'ROCK'|'PAPER'|'SCISSORS'}`.
+- `room:winnerChoice {target: string|null, action: ActionKind|null}` (within 9000ms `WINNER_CHOICE_BUDGET_MS`).
+
+v3 already includes the v2 Effect types `RPS_REVEAL` (per-player throw
+glyph hold, 1500ms) and `ZOOM_IN` / `ZOOM_OUT` (camera cinematic
+markers) — no schema migration needed for the Godot client; it can
+consume the same protocol the v2 PixiJS client did.
+
+## Server build (S-003)
+
+`server/tsup.config.ts` bundles `@xdyb/shared` into `server/dist/index.js`
+via `noExternal: ['@xdyb/shared']`. Without this, Node would try to
+`import` the workspace package's `main` field (`./src/index.ts`), fail
+on `ERR_UNKNOWN_FILE_EXTENSION`, and refuse to boot — the workspace
+strategy of pointing `main` at TS source is fine for dev (tsx) and for
+intra-workspace test runs (vitest), but it requires the bundler to
+inline the shared code for production startup.
 
 ## timing.ts ↔ Timing.gd codegen (pending S-006)
 

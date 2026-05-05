@@ -2,6 +2,19 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 3 — S-003 — port server/ Socket.IO entry + Room + matchmaking from v2
+
+**Did:** Copied `xiaodaoyiba-v2/packages/server/src/{index.ts,matchmaking.ts,rooms/Room.ts,index.test.ts}` verbatim into `server/src/`. The v3 `@xdyb/shared` barrel already re-exports every symbol the port needs (`SHARED_PACKAGE_VERSION`, `Effect`, `resolveRound`, `resolveRps`, `pickStrategyForIndex`, `getBotStrategy`, `seededRng`, `Rng`, `BotKind`, `BotStrategy`, `RoundHistoryEntry`, `RoundInputs`, `ActionKind`, `RpsChoice`, `PlayerState`, `ROUND_TOTAL_MS`, `TIE_NARRATION_HOLD_MS`) — no shimming needed. Switched `server/build` to a `tsup.config.ts` that sets `noExternal: ['@xdyb/shared']`, so `node server/dist/index.js` boots without needing a separately-built copy of the workspace shared package on disk.
+
+**Verified (acceptance for S-003):**
+- `pnpm test` → **83 tests passed (79 shared + 4 server) in <1s**.
+- `server/src/index.test.ts` boots a real Socket.IO server on a random port and drives 4 spec scenarios via `socket.io-client`: `/healthz` returns shared version + room count; host creates room, joiner joins via 4-letter code, both sockets receive synchronized `room:snapshot`; `room:addBot` adds a bot then `room:start` + `room:choice` triggers a `room:effects` broadcast whose first effect is `ROUND_START`; bad inputs (empty nickname, bogus 4-letter code) emit `room:error` with the expected error code.
+- `pnpm typecheck` → green across all 3 workspaces.
+- `pnpm --filter @xdyb/server build` produces `server/dist/index.js` (~41 KB, with shared bundled in).
+- `PORT=3458 node server/dist/index.js` + `curl /healthz` returns `{"ok":true,"shared":"0.0.1","rooms":0,...}` — the bundled artifact actually listens on the network, satisfying the S-003 acceptance bar literally.
+
+**Notes for next iteration:** S-004 (server/sim.ts headless CLI) is the next bottleneck for §A1–A4. After that, S-005 (Godot client) becomes unblocked. The Room class already exposes the full Socket.IO surface the eventual Godot `Net.gd` autoload needs — `room:create`, `room:join`, `room:addBot`, `room:start`, `room:choice`, `room:winnerChoice`, `room:rematch`, `room:leave` — and emits `room:snapshot`, `room:effects`, `room:winnerChoice`, `room:error`. The §H3 winner-agency flow is intact (9-second `WINNER_CHOICE_BUDGET_MS`, auto-pick fallback timer).
+
 ## Iteration 2 — S-002 — port shared/ game logic verbatim from v2
 
 **Did:** Copied `xiaodaoyiba-v2/packages/shared/src/game/` and
