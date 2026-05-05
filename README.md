@@ -70,10 +70,18 @@ xiaodaoyiba-v3/
 
 ## Status
 
-Iterations 1–12 have shipped a playable end-to-end build. The
-screenshot above is rendered by `client/tests/render_game.gd` against
-the committed Godot project — no hand-painted assets, no manual
-compositing.
+Iterations 1–15 have shipped a playable end-to-end build. The
+screenshot above is a **static mock** composed by
+`client/tests/render_action_static.gd` — it blits the SpriteAtlas
+house + character ImageTextures onto a hand-painted iso ground plane,
+then layers the phase banner, BattleLog, and HandPicker UI using a
+hand-rolled 5×7 bitmap font (ASCII) plus the committed
+NotoColorEmoji.ttf bitmap glyphs (✊ ✋ ✌). It runs in any
+`godot --headless` environment with no GPU, no SubViewport, and no CI
+font dependencies. A live HTML5-export capture is gated on the
+browser-MCP install in iter-16+; until then the mock truthfully
+demonstrates the §C11 viral aesthetic and §C8 BattleLog palette
+without claiming to be a runtime screenshot.
 
 **TypeScript shared + server (S-002 / S-003 / S-004)** — `shared/`
 holds the canonical game logic ported verbatim from v2: `engine.ts`
