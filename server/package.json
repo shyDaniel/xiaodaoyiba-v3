@@ -1,0 +1,28 @@
+{
+  "name": "@xdyb/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup src/index.ts src/sim.ts --format esm --target node20 --out-dir dist --clean",
+    "start": "node dist/index.js",
+    "sim": "tsx src/sim.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "lint": "echo 'lint: noop'"
+  },
+  "dependencies": {
+    "@xdyb/shared": "workspace:*",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "socket.io-client": "^4.8.1",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

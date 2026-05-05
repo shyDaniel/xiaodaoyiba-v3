@@ -1,0 +1,30 @@
+{
+  "name": "xiaodaoyiba-v3",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "description": "小刀一把 (xiaodaoyiba) v3 — Godot 4 client + reused TypeScript multiplayer server (ported verbatim from v2)",
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "bash scripts/dev.sh",
+    "dev:server": "pnpm --filter @xdyb/server dev",
+    "dev:godot": "godot --editor --path client",
+    "dev:godot:rebuild": "bash scripts/build.sh --client-only",
+    "build": "bash scripts/build.sh",
+    "build:server": "pnpm --filter @xdyb/server build",
+    "build:client": "bash scripts/build.sh --client-only",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r exec tsc --noEmit",
+    "sim": "pnpm --filter @xdyb/server sim",
+    "serve": "bash scripts/serve-html5.sh",
+    "godot:import": "godot --headless --path client --import",
+    "codegen:timing": "pnpm --filter @xdyb/shared run codegen:timing"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

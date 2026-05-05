@@ -1,0 +1,28 @@
+{
+  "name": "@xdyb/shared",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./game": "./src/game/index.ts",
+    "./game/timing": "./src/game/timing.ts",
+    "./narrative": "./src/narrative/lines.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsc -p tsconfig.json --noEmit --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "codegen:timing": "tsx scripts/codegen-timing.ts",
+    "lint": "echo 'lint: noop'"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
