@@ -1660,3 +1660,57 @@ follow the same per-frame path now — there is no longer a
   when visitors walk off-anchor.
 - `godot --headless --path client/ --import`: clean (exit 0,
   no compile errors).
+
+## S-316 — WinnerPicker field-name mismatch: client now reads `candidates` (iter-68)
+
+**Symptom (judge §C10 t18000.png):** local human wins, picker
+surfaces with the title "You won! Pick a target." and a
+"Targets" label — followed by an EMPTY area, even though 2
+alive opponents exist. Only the action buttons (Pull pants /
+CHOP / Pants up) render. Pressing them auto-resolves with no
+`target_pid` ever sent.
+
+**Root cause:** schema drift between server and client. Server
+emits `WinnerChoicePrompt.candidates: [{id, nickname, stage}]`
+(server/src/rooms/Room.ts:453); client read
+`prompt.eligibleTargets || prompt.targets`
+(client/scripts/ui/WinnerPicker.gd:39). Neither key existed in
+the payload, so `_eligible_targets` was always `[]` and the
+target VBox stayed empty. The §C10 picker had been silently
+agency-broken since the schema was renamed.
+
+**Fix (client/scripts/ui/WinnerPicker.gd):**
+- `open(prompt)` now reads `prompt.candidates` first, falls
+  back to legacy `eligibleTargets` / `targets` keys for any
+  in-flight payloads from older builds.
+- Each candidate is rendered as a 220×48 Button labeled
+  `<nickname>  (clothed)` or `<nickname>  (pants down)` so the
+  human can read at-a-glance whether Pull pants vs CHOP is the
+  correct verb.
+- `_pick_target(pid)` highlights the active chip (yellow tint)
+  and dims the others (alpha 0.6) — unambiguous click feedback.
+- Removed the silent auto-pick-when-1-candidate path. Even
+  with a single opponent, the user must consciously click the
+  chip; the action button shows "Pick a target first" in red
+  with a 600ms tween if pressed before a target is selected.
+- The 5s `PICKER_AUTO_PICK_MS` timeout still falls back to the
+  engine auto-pick if the human never engages.
+
+**Verification:**
+- `pnpm test` → 90/90 (shared 79 + server 11), 0 regressions.
+- `pnpm sim --players 4 --bots counter,random,iron,mirror
+  --winner-strategy random-target+random-action --rounds 50
+  --seed 42` → tie_rate=0.260 (<0.30), max winner 2/5=40%
+  (<60%), PULL_OWN_PANTS_UP fires R48 (acceptance gate green).
+- `bash scripts/build.sh --client-only` → Godot 4.3 packed
+  WinnerPicker.gd cleanly into the HTML5 export, no parse errors.
+- `node scripts/validate-game-progression.mjs` → multi-round
+  RX/TX frames and effects stream healthy (sawChoiceTx=true,
+  sawEffectsRx=true, sawPhasePlaying=true, sawRound3=true);
+  the PARTIAL exit is the known-unrelated S-243 strict-mode
+  bit (≥3 human wins in a single ROCK-only smoke run; we got
+  2 because R3 was a tie). The §C10 path is now wired
+  correctly — the next time a 3-player human win surfaces a
+  picker (e.g. via the iterative MCP rubric once browser MCPs
+  are repaired) ≥2 named target chips will render and be
+  individually clickable.

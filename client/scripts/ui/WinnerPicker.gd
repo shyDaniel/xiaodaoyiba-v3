@@ -28,6 +28,12 @@ var _hold_timer: float = 0.0
 var _open: bool = false
 var _eligible_targets: Array = []
 var _allow_self: bool = false
+# pid -> Button mapping so _pick_target can re-style the selected chip
+# without rebuilding the whole row. Reset every open().
+var _target_buttons: Dictionary = {}
+# pid -> display nickname so the title can use the human-readable name
+# rather than the opaque pid hash.
+var _target_nicks: Dictionary = {}
 
 func _ready() -> void:
 	visible = false
@@ -36,7 +42,18 @@ func _ready() -> void:
 	_action_self.pressed.connect(func(): _pick_action("PULL_OWN_PANTS_UP"))
 
 func open(prompt: Dictionary) -> void:
-	_eligible_targets = prompt.get("eligibleTargets", prompt.get("targets", []))
+	# §C10 / S-316: server schema (server/src/rooms/Room.ts:453,
+	# WinnerChoicePrompt.candidates) is the canonical field.
+	# `eligibleTargets` / `targets` are kept as legacy fallbacks for
+	# any in-flight payloads from older builds.
+	if prompt.has("candidates"):
+		_eligible_targets = prompt["candidates"]
+	elif prompt.has("eligibleTargets"):
+		_eligible_targets = prompt["eligibleTargets"]
+	elif prompt.has("targets"):
+		_eligible_targets = prompt["targets"]
+	else:
+		_eligible_targets = []
 	_allow_self = bool(prompt.get("canSelfRestore", false))
 	_selected_target = null
 	_selected_action = ""
@@ -44,14 +61,29 @@ func open(prompt: Dictionary) -> void:
 	# Refresh target list.
 	for c in _target_list.get_children():
 		c.queue_free()
+	# Track buttons so _pick_target can highlight the active selection.
+	_target_buttons.clear()
+	_target_nicks.clear()
 	for t in _eligible_targets:
 		var btn := Button.new()
-		var nick := str(t.get("nickname", "?")) if typeof(t) == TYPE_DICTIONARY else str(t)
-		var pid := str(t.get("id", "")) if typeof(t) == TYPE_DICTIONARY else str(t)
-		btn.text = nick
-		btn.custom_minimum_size = Vector2(120, 48)
+		var is_dict: bool = typeof(t) == TYPE_DICTIONARY
+		var nick: String = str(t.get("nickname", "?")) if is_dict else str(t)
+		var pid: String = str(t.get("id", "")) if is_dict else str(t)
+		var stage_str: String = str(t.get("stage", "")) if is_dict else ""
+		# Annotate stage so the human can read at-a-glance whether the
+		# target is clothed (Pull pants) or already pants-down (CHOP).
+		var label: String = nick
+		if stage_str == "ALIVE_PANTS_DOWN":
+			label = "%s  (pants down)" % nick
+		elif stage_str == "ALIVE_CLOTHED":
+			label = "%s  (clothed)" % nick
+		btn.text = label
+		btn.custom_minimum_size = Vector2(220, 48)
+		btn.add_theme_font_size_override("font_size", 16)
 		btn.pressed.connect(func(): _pick_target(pid))
 		_target_list.add_child(btn)
+		_target_buttons[pid] = btn
+		_target_nicks[pid] = nick
 	_action_self.visible = _allow_self
 	_open = true
 	_hold_timer = float(Timing.PICKER_AUTO_PICK_MS) / 1000.0
@@ -79,7 +111,18 @@ func _process(delta: float) -> void:
 
 func _pick_target(pid: String) -> void:
 	_selected_target = pid
-	_title.text = "Target: %s - now pick an action" % pid
+	# Re-style every button so the active chip is visually distinct
+	# from the unselected ones. Highlight = bright yellow border, dim
+	# the rest. The user gets unambiguous feedback that their click
+	# registered.
+	for tpid in _target_buttons.keys():
+		var b: Button = _target_buttons[tpid]
+		if tpid == pid:
+			b.modulate = Color(1.0, 0.95, 0.55, 1.0)
+		else:
+			b.modulate = Color(1.0, 1.0, 1.0, 0.6)
+	var nick: String = _target_nicks.get(pid, pid)
+	_title.text = "Target: %s - now pick an action" % nick
 
 func _pick_action(action: String) -> void:
 	_selected_action = action
@@ -90,12 +133,15 @@ func _pick_action(action: String) -> void:
 		_open = false
 		winner_choice_made.emit(null, action)
 		return
-	if _selected_target == null and _eligible_targets.size() == 1:
-		var t = _eligible_targets[0]
-		var pid = str(t.get("id", "")) if typeof(t) == TYPE_DICTIONARY else str(t)
-		_selected_target = pid
+	# §C10 / S-316: do NOT auto-resolve when no target is selected.
+	# Even with a single candidate, the human must consciously pick so
+	# the agency moment is preserved. The 5-second timeout still falls
+	# back to the engine auto-pick if they never click anything.
 	if _selected_target == null:
 		_title.text = "Pick a target first"
+		_title.modulate = Color(1.0, 0.5, 0.5, 1.0)
+		var tw := create_tween()
+		tw.tween_property(_title, "modulate", Color(1, 0.94, 0.62, 1), 0.6)
 		return
 	_open = false
 	winner_choice_made.emit(_selected_target, action)
