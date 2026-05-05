@@ -41,6 +41,17 @@ if [[ "$DO_CLIENT" -eq 1 ]]; then
     # table. Idempotent and deterministic (mulberry32 seeded by name).
     echo "[build] generating audio assets..."
     node scripts/codegen-audio.mjs
+    # S-362: surface which sources triggered the rebuild so it's obvious in
+    # CI/dev logs that localization edits actually made it into index.pck.
+    if [[ -f client/build/index.pck ]]; then
+      STALE_LIST=$(find client/scenes client/scripts client/project.godot \
+        \( -name '*.tscn' -o -name '*.gd' -o -name '*.import' -o -name 'project.godot' \) \
+        -newer client/build/index.pck 2>/dev/null | head -10 || true)
+      if [[ -n "${STALE_LIST:-}" ]]; then
+        echo "[build] sources newer than current index.pck (will be re-exported):"
+        echo "${STALE_LIST}" | sed 's/^/  /'
+      fi
+    fi
     echo "[build] importing Godot project..."
     godot --headless --path client --import || true
     echo "[build] exporting Godot HTML5 release..."

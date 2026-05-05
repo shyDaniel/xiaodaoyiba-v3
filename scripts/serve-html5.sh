@@ -22,6 +22,27 @@ if [[ ! -f "$DIR/index.html" ]]; then
   exit 1
 fi
 
+# S-362: refuse to serve a stale HTML5 build. If any .tscn / .gd / .import /
+# project.godot source is newer than client/build/index.pck, the live game
+# would ship the OLD localization (e.g. English Lobby panel) even though the
+# source has been updated. That is a brand-identity bug — fail loud instead
+# of silently serving stale strings.
+if [[ -f "$DIR/index.pck" ]]; then
+  STALE=$(find client/scenes client/scripts client/project.godot \
+    \( -name '*.tscn' -o -name '*.gd' -o -name '*.import' -o -name 'project.godot' \) \
+    -newer "$DIR/index.pck" 2>/dev/null | head -5 || true)
+  if [[ -n "${STALE:-}" ]]; then
+    echo "[serve] STALE BUILD: source files are newer than $DIR/index.pck:" >&2
+    echo "${STALE}" | sed 's/^/  /' >&2
+    if [[ "${ALLOW_STALE:-0}" = "1" ]]; then
+      echo "[serve] ALLOW_STALE=1 set — serving stale build anyway." >&2
+    else
+      echo "[serve] Run \`pnpm build:client\` to re-export (or set ALLOW_STALE=1 to override)." >&2
+      exit 2
+    fi
+  fi
+fi
+
 echo "[serve] serving $DIR at http://localhost:${PORT} (COOP/COEP enabled for Godot threads)..."
 exec node -e "
 const http = require('http');

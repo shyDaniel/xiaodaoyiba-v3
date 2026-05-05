@@ -2,6 +2,40 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 76 — S-362 — Stale HTML5 build guard + re-export
+
+**Symptom.** `client/build/index.pck` mtime was older than the iter-75
+Lobby.tscn localization commit (06:14:09 vs 06:25:21). The live :5173
+game was still serving the OLD English Lobby panel ('Room 3J62',
+'Add Bot [A]', 'Share the room code with friends - then Start') even
+though the source had been Chinese-localized in commit `0c945f9`. The
+brand-identity fix from iter-75 was invisible to actual users.
+
+**Fix.** Two pieces:
+(1) `scripts/serve-html5.sh` now compares `client/build/index.pck`
+    mtime against every `.tscn` / `.gd` / `.import` / `project.godot`
+    under `client/scenes` and `client/scripts` and exits non-zero
+    (with a list of stale sources) before serving. `ALLOW_STALE=1`
+    overrides for emergencies. This makes silent stale-build
+    regressions impossible to ship.
+(2) `scripts/build.sh` now logs which sources are newer than the
+    current `index.pck` so CI/dev logs make it obvious that
+    localization commits actually flowed into the export.
+(3) Ran `pnpm build:client` to refresh the build (53 MB pck +
+    33 MB wasm).
+
+**Verification.** Drove headless chromium against
+http://localhost:5173/ via `scripts/validate-lobby-keybinds.mjs` —
+called `window.xdyb_landing_create()`, pressed A×3 + S, captured
+screenshot at `/tmp/lobby_keybind_check/02-after-create.png`.
+Confirmed visually: panel reads `房号 FQ4Q`, `把房号发给朋友，凑齐人就开打`,
+`按键：A 加机器人  S 开打  L 走人`, `玩家`, `加机器人 [A]`, `开打 [S]`,
+`走人 [L]` — zero English Lobby strings. WebSocket trace shows 6
+`room:addBot` and 2 `room:start` frames as expected. `pnpm test` =
+90/90 green. Confirmed the new staleness guard fires by touching
+`Lobby.tscn` newer than the pck and re-running serve — exits 2 with
+the list of stale sources, as designed.
+
 ## Iteration 74 — S-350 — Landing localized to CJK rhyme
 
 **Symptom.** Iter-73 had the in-game scene + lobby + WinnerPicker fully
