@@ -27,6 +27,7 @@ const Character := preload("res://scripts/characters/Character.gd")
 @onready var ground: Node2D = $World/Ground
 @onready var houses_layer: Node2D = $World/Houses
 @onready var characters_layer: Node2D = $World/Characters
+@onready var effects_layer: Node2D = $World/Effects
 @onready var camera: Camera2D = $World/CinematicCamera
 @onready var battle_log = $UILayer/BattleLog
 @onready var hand_picker = $UILayer/HandPicker
@@ -249,6 +250,103 @@ func play_action(actor: String, target: String, kind: String) -> void:
 		_:
 			pass
 
+# --- particle FX (S-261, FINAL_GOAL §C5) -----------------------------------
+#
+# The four emitter scenes under res://scenes/effects/ are GPUParticles2D
+# nodes with one_shot=true and a procedural color, but ship without a
+# texture so each particle would draw as the engine's default 1×1 white
+# point — invisible at 1280×720. We assign a radial-dot ImageTexture
+# from the SpriteAtlas autoload at spawn time so the particles read on
+# screen at their intended scale (~32px native, 0.5–1.4× scale jitter).
+#
+# Spawn anchors (per acceptance criterion):
+#   - DustEmitter      → actor's feet at RUSH start
+#   - ClothEmitter     → target waist at PULL_PANTS atMs
+#   - WoodChipEmitter  → target's house door at STRIKE / IMPACT
+#   - ConfettiEmitter  → winner position on VICTORY / GAME_OVER
+#
+# Emitters self-free after their lifetime + a small grace period so the
+# Effects layer never accumulates dead one-shots across rounds.
+
+const _DUST_SCENE := preload("res://scenes/effects/DustEmitter.tscn")
+const _CLOTH_SCENE := preload("res://scenes/effects/ClothEmitter.tscn")
+const _WOODCHIP_SCENE := preload("res://scenes/effects/WoodChipEmitter.tscn")
+const _CONFETTI_SCENE := preload("res://scenes/effects/ConfettiEmitter.tscn")
+
+func _atlas_node() -> Node:
+	return get_node_or_null("/root/SpriteAtlas")
+
+func _spawn_emitter(scene: PackedScene, world_pos: Vector2, tex: Texture2D) -> Node:
+	if scene == null or effects_layer == null:
+		return null
+	var inst := scene.instantiate()
+	if inst == null:
+		return null
+	if inst is GPUParticles2D:
+		var p := inst as GPUParticles2D
+		if tex != null:
+			p.texture = tex
+		p.position = world_pos
+		p.emitting = true
+		# Auto-cleanup: free a hair after the particle lifetime so dust /
+		# cloth / chips / confetti don't pile up across rounds.
+		var ttl: float = p.lifetime + 0.5
+		var t := get_tree().create_timer(ttl)
+		t.timeout.connect(func():
+			if is_instance_valid(p):
+				p.queue_free())
+	effects_layer.add_child(inst)
+	return inst
+
+func spawn_dust_at(actor_id: String) -> void:
+	if not _characters.has(actor_id):
+		return
+	var c: Character = _characters[actor_id]
+	# Feet ≈ character anchor. The Character node's position is its base
+	# (y_sort anchor) so dust spawns naturally at ground level.
+	var atlas := _atlas_node()
+	var tex: Texture2D = null
+	if atlas != null:
+		tex = atlas.fx_dust_texture
+	_spawn_emitter(_DUST_SCENE, c.position, tex)
+
+func spawn_cloth_at(target_id: String) -> void:
+	if not _characters.has(target_id):
+		return
+	var c: Character = _characters[target_id]
+	# Waist ≈ ~32 px above the feet anchor (sprite is 96 px tall, waist
+	# sits roughly at the mid-thigh which is the briefs band per §C7).
+	var atlas := _atlas_node()
+	var tex: Texture2D = null
+	if atlas != null:
+		tex = atlas.fx_cloth_texture
+	_spawn_emitter(_CLOTH_SCENE, c.position + Vector2(0, -32), tex)
+
+func spawn_woodchip_at(target_id: String) -> void:
+	# Wood chips burst from the target's house door. Houses anchor at
+	# their base; the door sits at the bottom of the body sprite so the
+	# emitter lands right on the door for the visible chip puff.
+	if not _houses.has(target_id):
+		return
+	var house: Node2D = _houses[target_id]
+	var atlas := _atlas_node()
+	var tex: Texture2D = null
+	if atlas != null:
+		tex = atlas.fx_woodchip_texture
+	# House anchor is the base; door is ~24 px above that.
+	_spawn_emitter(_WOODCHIP_SCENE, house.position + Vector2(0, -24), tex)
+
+func spawn_confetti_at(player_id: String) -> void:
+	if not _characters.has(player_id):
+		return
+	var c: Character = _characters[player_id]
+	var atlas := _atlas_node()
+	var tex: Texture2D = null
+	if atlas != null:
+		tex = atlas.fx_confetti_texture
+	# Confetti rains down from above the winner's head.
+	_spawn_emitter(_CONFETTI_SCENE, c.position + Vector2(0, -120), tex)
+
 func set_player_stage(pid: String, stage_str: String) -> void:
 	if not _characters.has(pid):
 		return
@@ -281,6 +379,8 @@ func show_victory(winner_id) -> void:
 	var name := "?"
 	if winner_id != null and _characters.has(String(winner_id)):
 		name = (_characters[String(winner_id)] as Character).nickname
+		# §C5 / S-261 — rain confetti on the winner.
+		spawn_confetti_at(String(winner_id))
 	victory_label.text = "%s WINS!" % name
 	Audio.cross_fade_bgm("victory")
 	Audio.play_sfx("victory")

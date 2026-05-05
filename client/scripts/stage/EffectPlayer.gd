@@ -30,6 +30,17 @@ signal round_finished
 var stage = null # GameStage (typed via duck-call to keep cyclic deps simple)
 var _master: Tween = null
 
+# S-261 — track the current round's action so PHASE_START dispatch can
+# spawn the right particle FX without duplicating actor/target lookup
+# logic. The server emits a single ACTION effect per round at PREP start;
+# subsequent PHASE_START(RUSH) / PHASE_START(PULL_PANTS) /
+# PHASE_START(STRIKE|IMPACT) all reference that same actor/target pair.
+# Reset to "" each ROUND_START so a stale action from the previous round
+# can never leak forward.
+var _cur_actor: String = ""
+var _cur_target: String = ""
+var _cur_kind: String = ""
+
 func bind(s) -> void:
 	stage = s
 
@@ -72,6 +83,10 @@ func _dispatch(e: Dictionary) -> void:
 	var t := String(e.get("type", ""))
 	match t:
 		"ROUND_START":
+			# Wipe per-round action context so stale FX never leak forward.
+			_cur_actor = ""
+			_cur_target = ""
+			_cur_kind = ""
 			stage.battle_log.add_row(int(e.get("round", 0)), "round",
 				"Round %d - fight!" % int(e.get("round", 0)), "")
 			Audio.play_sfx("tap")
@@ -93,10 +108,18 @@ func _dispatch(e: Dictionary) -> void:
 		"PHASE_START":
 			var phase := String(e.get("phase", ""))
 			stage.on_phase_start(phase, int(e.get("round", 0)))
+			# S-261 / §C5 — fire the appropriate one-shot particle burst
+			# at the start of each visible action phase. The actor/target
+			# pair came from the ACTION effect at PREP start, so by RUSH
+			# (and later) we have everything we need.
+			_spawn_phase_fx(phase)
 		"ACTION":
 			var actor := String(e.get("actor", ""))
 			var target := String(e.get("target", ""))
 			var kind := String(e.get("kind", ""))
+			_cur_actor = actor
+			_cur_target = target
+			_cur_kind = kind
 			stage.play_action(actor, target, kind)
 		"SET_STAGE":
 			var pid := String(e.get("target", ""))
@@ -117,6 +140,49 @@ func _dispatch(e: Dictionary) -> void:
 		"GAME_OVER":
 			stage.battle_log.add_row(int(e.get("round", 0)), "end",
 				"Game over", "DEAD")
+		_:
+			pass
+
+# S-261 / §C5 — particle FX dispatch on PHASE_START.
+#
+# Phase choreography mapping:
+#   RUSH        → DustEmitter at actor feet (kicks up dust on the sprint)
+#   PULL_PANTS  → ClothEmitter at target waist (red briefs cloth burst)
+#   STRIKE      → WoodChipEmitter at target's house door (knife wind-up
+#                 chips fly already, IMPACT amplifies; firing at STRIKE
+#                 makes the chip burst lead the impact frame visibly)
+#   IMPACT      → WoodChipEmitter again at the door for the actual chop
+#                 thud — stacking two bursts reads as a richer hit
+#
+# Self-actions (PULL_OWN_PANTS_UP) reuse cloth on the actor's own waist
+# so the restorative gesture has visible feedback.
+func _spawn_phase_fx(phase: String) -> void:
+	if stage == null:
+		return
+	if _cur_actor.length() == 0 and _cur_target.length() == 0:
+		return  # tie / no-op round; nothing to dispatch
+	match phase:
+		"RUSH":
+			# Self-action has actor==target; dust at the actor still
+			# reads as "winding up" so we don't suppress it.
+			if _cur_actor.length() > 0 and stage.has_method("spawn_dust_at"):
+				stage.spawn_dust_at(_cur_actor)
+		"PULL_PANTS":
+			# Cloth burst at target waist — for self-restore the target
+			# is the actor themselves so the same call works.
+			var who := _cur_target if _cur_target.length() > 0 else _cur_actor
+			if stage.has_method("spawn_cloth_at"):
+				stage.spawn_cloth_at(who)
+		"STRIKE":
+			# Wood chips lead the IMPACT frame so the hit reads as built
+			# up. Only fire on CHOP-shaped actions (kind=CHOP / blank).
+			if _cur_kind == "CHOP" or _cur_kind == "":
+				if _cur_target.length() > 0 and stage.has_method("spawn_woodchip_at"):
+					stage.spawn_woodchip_at(_cur_target)
+		"IMPACT":
+			if _cur_kind == "CHOP" or _cur_kind == "":
+				if _cur_target.length() > 0 and stage.has_method("spawn_woodchip_at"):
+					stage.spawn_woodchip_at(_cur_target)
 		_:
 			pass
 

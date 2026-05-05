@@ -36,6 +36,9 @@ y_sort_enabled = true
 [node name="Characters" type="Node2D" parent="World"]
 y_sort_enabled = true
 
+[node name="Effects" type="Node2D" parent="World"]
+y_sort_enabled = false
+
 [node name="CinematicCamera" type="Camera2D" parent="World"]
 script = ExtResource("2_cam")
 rest_zoom = 1.0

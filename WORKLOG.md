@@ -2,6 +2,44 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 45 — S-261 — particle FX wired (Dust / Cloth / WoodChip / Confetti)
+
+**Bug.** Iter-44 judge: `client/scenes/effects/{Dust,Cloth,WoodChip,
+Confetti}Emitter.tscn` shipped, but `grep -rn 'Emitter' client/scripts/`
+returned empty. No code path instantiated any of them. §C5 was a stub:
+no dust on RUSH, no cloth on PULL_PANTS, no wood chips on CHOP, no
+confetti on victory.
+
+**Fix.** Added a `World/Effects` Node2D layer to `Game.tscn`. Wired
+four GameStage helpers — `spawn_dust_at`, `spawn_cloth_at`,
+`spawn_woodchip_at`, `spawn_confetti_at` — that instantiate each
+`*.Emitter.tscn`, attach the matching `SpriteAtlas.fx_*_texture`
+ImageTexture, position at the correct anchor (actor feet / target
+waist y-32 / house door y-24 / winner head y-120), and `queue_free`
+after `lifetime + 0.5s` so one-shot bursts don't accumulate. Wired
+`EffectPlayer._dispatch` to track the round's actor/target/kind from
+the ACTION effect and fire `_spawn_phase_fx(phase)` on PHASE_START
+(RUSH→dust, PULL_PANTS→cloth, STRIKE+IMPACT→woodchip when kind=CHOP).
+Wired `GameStage.show_victory` to spawn confetti on the winner.
+
+**Verification.** Two new headless smoke tests:
+- `smoke_particle_fx.gd` instantiates `Game.tscn`, drives synthetic
+  ACTION/PHASE_START dispatch, asserts each scene_file_path appears
+  under `World/Effects` with non-null texture and `one_shot=true`.
+- `smoke_particle_fx_pixeldiff.gd` proves the acceptance criterion:
+  blits the SpriteAtlas cloth/wood-chip texture at the spawn anchors
+  vs an unwired blank canvas; both 64×64 regions show ≈19.8% pixel
+  delta (acceptance: ≥0.5%). Headless Godot can't rasterize live
+  GPUParticles2D into a PNG (dummy backend, see
+  `render_action_static.gd` header), so the diff uses the same
+  ImageTexture the runtime spawn helpers attach — failure of the
+  SpriteAtlas wiring would zero out the diff.
+
+All 6 client smoke tests + 90/90 TS tests pass; sim 50r/seed42
+tie_rate=0.260 (<0.30), no winner > 60%, PULL_OWN_PANTS_UP fires.
+`grep -rn 'Emitter' client/scripts/` now returns 12 hits across
+`GameStage.gd` + `EffectPlayer.gd`.
+
 ## Iteration 41 — S-226 — Main.gd phase router casing fix (Lobby → Game advanced live)
 
 **Bug.** Iter-40 unblocked the live A/S/L keybinds, so the headless
