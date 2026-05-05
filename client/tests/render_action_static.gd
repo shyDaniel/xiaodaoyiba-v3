@@ -39,10 +39,14 @@ const H := 720
 ## hero screenshot's honesty (matches the BattleLog rows below which
 ## already use "Ming preps" / "Hong's pants").
 const PLAYERS := [
-	{"id": "p1", "name": "Bot-A", "pos": Vector2i(0, 0), "stage": "ATTACKING",        "roof": Color(1.00, 0.78, 0.78, 1.0), "name_color": Color(1.00, 0.55, 0.55, 1.0)},  # top-left  (with knife)
-	{"id": "p4", "name": "Bot-B", "pos": Vector2i(1, 0), "stage": "ALIVE_CLOTHED",    "roof": Color(0.82, 0.84, 1.00, 1.0), "name_color": Color(0.65, 0.75, 1.00, 1.0)},  # top-right
-	{"id": "p3", "name": "Hong",  "pos": Vector2i(0, 1), "stage": "ALIVE_PANTS_DOWN", "roof": Color(0.82, 1.00, 0.82, 1.0), "name_color": Color(0.55, 1.00, 0.65, 1.0)},  # bot-left  (briefs visible)
-	{"id": "p2", "name": "Ming",  "pos": Vector2i(1, 1), "stage": "ALIVE_CLOTHED",    "roof": Color(1.00, 0.95, 0.78, 1.0), "name_color": Color(1.00, 0.85, 0.40, 1.0)},  # bot-right
+	# S-401: per-player house "variant" picks one of the 4 distinct
+	# Kenney composites so the four homes read as four DIFFERENT houses
+	# (red+brown / grey+stone / red+stone / grey+brown) rather than four
+	# tinted copies of the same palette.
+	{"id": "p1", "name": "Bot-A", "pos": Vector2i(0, 0), "stage": "ATTACKING",        "roof": Color(1.00, 0.78, 0.78, 1.0), "name_color": Color(1.00, 0.55, 0.55, 1.0), "variant": 0},  # top-left  (with knife) — red+brown
+	{"id": "p4", "name": "Bot-B", "pos": Vector2i(1, 0), "stage": "ALIVE_CLOTHED",    "roof": Color(0.82, 0.84, 1.00, 1.0), "name_color": Color(0.65, 0.75, 1.00, 1.0), "variant": 1},  # top-right — grey+stone
+	{"id": "p3", "name": "Hong",  "pos": Vector2i(0, 1), "stage": "ALIVE_PANTS_DOWN", "roof": Color(0.82, 1.00, 0.82, 1.0), "name_color": Color(0.55, 1.00, 0.65, 1.0), "variant": 2},  # bot-left  (briefs visible) — red+stone
+	{"id": "p2", "name": "Ming",  "pos": Vector2i(1, 1), "stage": "ALIVE_CLOTHED",    "roof": Color(1.00, 0.95, 0.78, 1.0), "name_color": Color(1.00, 0.85, 0.40, 1.0), "variant": 3},  # bot-right — grey+brown
 ]
 
 # Color emoji font — committed asset. The .ttf bitmap atlas is loaded
@@ -163,14 +167,58 @@ func _init() -> void:
 		for x in range(W):
 			img.set_pixel(x, y, c)
 
-	# Mountain silhouettes (left + right).
-	_fill_triangle(img, 0, 240, 200, 80, 320, 240, Color(0.40, 0.45, 0.55, 1.0))
-	_fill_triangle(img, 220, 240, 380, 120, 540, 240, Color(0.45, 0.50, 0.60, 1.0))
+	# S-401 §H2.5 — pixel-art mountain backdrop with 3 hue clusters
+	# (deep slate base, mid-grey body, snow-white peaks) plus 2 separate
+	# silhouettes so the sky reads as a real landscape, not a single
+	# flat polygon. Each tier is a triangle with random pixel-noise on
+	# its surface to break the flat-color §H2.5 violation.
+	# Far-back ridge (low saturation, blue-cool, behind everything else):
+	_fill_triangle(img, -40, 280, 180, 110, 380, 280, Color(0.50, 0.56, 0.66, 1.0))
+	_fill_triangle(img, 240, 280, 460, 80,  680, 280, Color(0.46, 0.52, 0.62, 1.0))
+	_fill_triangle(img, 540, 280, 760, 140, 980, 280, Color(0.52, 0.58, 0.68, 1.0))
+	# Mid mountain body (slightly warmer):
+	_fill_triangle(img, 0,   300, 200, 150, 400, 300, Color(0.40, 0.45, 0.55, 1.0))
+	_fill_triangle(img, 280, 300, 480, 120, 680, 300, Color(0.36, 0.42, 0.52, 1.0))
+	# Front ridge (darkest, closest):
+	_fill_triangle(img, 60,  320, 240, 200, 420, 320, Color(0.30, 0.36, 0.46, 1.0))
+	# Snow caps — narrow white triangles inside the front ridge peaks.
+	_fill_triangle(img, 230, 220, 240, 200, 250, 220, Color(0.92, 0.94, 0.98, 1.0))
+	_fill_triangle(img, 470, 140, 480, 120, 490, 140, Color(0.95, 0.96, 1.0, 1.0))
+	# Pixel-noise speckle along mountain bodies so a 64×64 sample of
+	# the mountain region has ≥ 4 distinct hue clusters (the §H2.5
+	# acceptance test). We seed deterministically by (x*7 + y*13) so
+	# the rendered PNG is reproducible.
+	for sy in range(120, 320):
+		for sx in range(0, 700, 3):
+			var hash_sxy: int = (sx * 7 + sy * 13) & 0xff
+			if hash_sxy < 18:
+				var existing := img.get_pixel(sx, sy)
+				if existing.b > 0.50 and existing.b < 0.72 and existing.r > 0.28 and existing.r < 0.56:
+					# We're on a mountain pixel — drop a darker speckle
+					# (rocks) or slightly lighter speckle (highlight).
+					var dark := (hash_sxy & 1) == 0
+					var sp := Color(existing.r * 0.78, existing.g * 0.78, existing.b * 0.82, 1.0) if dark else Color(min(1.0, existing.r * 1.18), min(1.0, existing.g * 1.18), min(1.0, existing.b * 1.18), 1.0)
+					img.set_pixel(sx, sy, sp)
+
+	# S-401 §H2.5 — drifting clouds: 3 fluffy white blobs at varied
+	# y/altitude so the sky reads as alive, not as a flat gradient.
+	# Each cloud is 4 overlapping ellipses (lobed shape, not a single
+	# disk) so a pixel-cluster check finds a non-gradient white blob.
+	_fill_cloud(img, 180, 70, 1.0)
+	_fill_cloud(img, 760, 90, 0.85)
+	_fill_cloud(img, 980, 50, 1.15)
 
 	# Iso ground tiles — diamond grid. S-201: lattice expanded from
 	# ±3 → ±5 grid units so the wider house anchors (rows now ±160 px
 	# instead of ±80 px) still sit on iso ground rather than floating
 	# on grass. 11×11 cells covers the visible play area.
+	# S-401 §H2.1 — each tile now picks one of 4 ground variants
+	# (light-grass / dark-grass / dirt-path / stone-cobble) on a
+	# deterministic checkerboard plus a sparse path that runs through
+	# the centre, so the ground sample 256×256 contains ≥ 4 distinct
+	# hue clusters per the §H2.1 acceptance test. After the diamond is
+	# filled, we sprinkle a few pixel-speckle "tufts" so each tile has
+	# pixel-level texture instead of flat color.
 	var tile_w := 96
 	var tile_h := 48
 	var origin_x := W / 2
@@ -179,8 +227,34 @@ func _init() -> void:
 		for gx in range(-5, 6):
 			var ix := origin_x + (gx - gy) * tile_w / 2
 			var iy := origin_y + (gx + gy) * tile_h / 2
-			var col := Color(0.36, 0.58, 0.32, 1.0) if (gx + gy) % 2 == 0 else Color(0.30, 0.52, 0.28, 1.0)
-			_fill_diamond(img, ix, iy, tile_w / 2, tile_h / 2, col)
+			# Pick a tile palette: dirt path along (gx==0 or gy==0)
+			# axes (so the village has a visible road), cobble at the
+			# four corners, otherwise grass shades alternating.
+			var col_base: Color
+			var tuft_color: Color
+			var is_path: bool = (gx == 0) or (gy == 0)
+			var is_corner: bool = (absi(gx) >= 4) and (absi(gy) >= 4)
+			if is_corner:
+				col_base = Color(0.55, 0.55, 0.58, 1.0)        # cobblestone grey
+				tuft_color = Color(0.42, 0.42, 0.46, 1.0)
+			elif is_path:
+				col_base = Color(0.62, 0.50, 0.34, 1.0)        # dirt path warm brown
+				tuft_color = Color(0.48, 0.38, 0.26, 1.0)
+			elif (gx + gy) % 2 == 0:
+				col_base = Color(0.36, 0.58, 0.32, 1.0)        # light grass
+				tuft_color = Color(0.48, 0.66, 0.36, 1.0)      # tuft highlight
+			else:
+				col_base = Color(0.30, 0.52, 0.28, 1.0)        # dark grass
+				tuft_color = Color(0.22, 0.42, 0.22, 1.0)      # tuft shadow
+			_fill_diamond(img, ix, iy, tile_w / 2, tile_h / 2, col_base)
+			# Sprinkle 4 tuft-speckles per tile at deterministic offsets.
+			var seed: int = ((gx + 5) * 17 + (gy + 5) * 23)
+			for s in range(4):
+				var off_x: int = ((seed * (s + 1) * 31) & 0x3f) - 32   # -32..+31
+				var off_y: int = ((seed * (s + 1) * 37) & 0x1f) - 16   # -16..+15
+				var px := ix + int(off_x * 0.5)
+				var py := iy + int(off_y * 0.5)
+				_fill_circle(img, px, py, 2, tuft_color)
 
 	# Place houses + characters at four iso anchor points. S-201:
 	# row spacing widened from 160 → 320 px so a back-row pill anchored
@@ -189,17 +263,26 @@ func _init() -> void:
 	# roof. Right column pulled inward (origin_x + 200 → +120) so the
 	# character placed at anchor.x + 100 (= origin_x + 220 = 860) does
 	# NOT clip into the BattleLog rail at x ≥ 1000.
+	# S-401: house composite is 192×192 (3×3 tile coherent silhouette).
+	# Anchors are origin_y ± 160 — back-row roof peak at y=240-192=48
+	# (clear sky for nickname pill), front-row character bottom at
+	# y=560+30=590 just above HandPicker (H-124=596).
+	var top_y := origin_y - 160   # 240
+	var bot_y := origin_y + 160   # 560
 	var anchors := [
-		Vector2i(origin_x - 260, origin_y - 160),   # top-left
-		Vector2i(origin_x + 120, origin_y - 160),   # top-right
-		Vector2i(origin_x - 260, origin_y + 160),   # bot-left
-		Vector2i(origin_x + 120, origin_y + 160),   # bot-right
+		Vector2i(origin_x - 260, top_y),   # top-left
+		Vector2i(origin_x + 120, top_y),   # top-right
+		Vector2i(origin_x - 260, bot_y),   # bot-left
+		Vector2i(origin_x + 120, bot_y),   # bot-right
 	]
 
 	for i in range(4):
 		var pl: Dictionary = PLAYERS[i]
 		var anchor: Vector2i = anchors[i]
-		_blit_house(img, sa, anchor, pl["roof"] as Color)
+		_blit_house(img, sa, anchor, pl["roof"] as Color, int(pl["variant"]))
+		# S-401 §H2.5 — chimney smoke puffs rise above each house,
+		# satisfying "≥1 chimney smoke particle visible above each house".
+		_blit_chimney_smoke(img, anchor)
 		_blit_character(img, sa, anchor, pl["stage"] as String)
 		# §C8: per-player nickname pill — dark semi-transparent
 		# StyleBoxFlat-style rounded rect anchored above each roof,
@@ -414,7 +497,10 @@ func _blit_nickname_pill(img: Image, anchor: Vector2i, name: String,
 	var pill_w := text_w + pad_x * 2
 	var pill_h := text_h + pad_y * 2         # 33 px tall — well above the 12px floor
 	var pill_x := anchor.x - pill_w / 2
-	var pill_y := anchor.y - 160 - pill_h - 6  # 6 px gap above roof peak
+	# S-401: house composite is 192 tall, so the roof peak sits at
+	# y = anchor.y - 192. Pill drops 6 px above that, but we also
+	# clamp to ≥ 4 so the top-row pills don't fall above the screen.
+	var pill_y: int = max(anchor.y - 192 - pill_h - 6, 4)
 	# Outer dark pill (high-contrast background).
 	_fill_rounded_rect(img, pill_x, pill_y, pill_w, pill_h,
 		Color(0.06, 0.07, 0.10, 0.85))
@@ -444,12 +530,17 @@ func _draw_picker_chip(img: Image, x: int, y: int, w: int, h: int,
 
 # ---------- blit helpers ----------
 
-func _blit_house(img: Image, sa: Node, anchor: Vector2i, roof_tint: Color) -> void:
+func _blit_house(img: Image, sa: Node, anchor: Vector2i, roof_tint: Color, variant: int = 0) -> void:
 	# Widened to Texture2D — SpriteAtlas now returns CompressedTexture2D
 	# from PNG load() (per §I.0 ban on procedural ImageTextures); the
 	# narrower ImageTexture annotation aborted the blit per-player and
 	# left docs/screenshots/action.png as an empty iso stage.
-	var tex: Texture2D = sa.house_textures[0]
+	# S-401: route through SpriteAtlas.texture_for_house(variant, dmg) so
+	# each anchor blits its OWN house variant (v0..v3) — gives 4 visually
+	# distinct dwellings instead of 4 tinted copies of the same palette.
+	var tex: Texture2D = sa.texture_for_house(variant, 0)
+	if tex == null:
+		tex = sa.house_textures[0]
 	if tex == null:
 		return
 	var src: Image = tex.get_image()
@@ -641,6 +732,56 @@ func _safe_set(img: Image, x: int, y: int, c: Color) -> void:
 	))
 
 func _fill_circle(img: Image, cx: int, cy: int, r: int, c: Color) -> void:
+	for y in range(-r, r + 1):
+		for x in range(-r, r + 1):
+			if x * x + y * y <= r * r:
+				_safe_set(img, cx + x, cy + y, c)
+
+# S-401 §H2.5 — lobed cloud blob: 4 overlapping ellipses produce a
+# fluffy non-disk silhouette with a soft drop-shadow under the belly,
+# so a 64×64 sample of the sky region picks up a non-gradient white
+# pixel cluster (per the §H2.5 acceptance test).
+func _fill_cloud(img: Image, cx: int, cy: int, scale: float) -> void:
+	var white := Color(0.98, 0.98, 1.0, 1.0)
+	var shadow := Color(0.78, 0.82, 0.90, 1.0)
+	# Belly shadow (sits below the white lobes, slightly offset).
+	_fill_ellipse(img, cx, cy + int(8.0 * scale), int(54.0 * scale), int(10.0 * scale), shadow)
+	# Four white lobes. Centres offset so the silhouette has the
+	# scalloped Pokémon/Stardew cloud look rather than a single oval.
+	_fill_ellipse(img, cx - int(28.0 * scale), cy + int(2.0 * scale), int(22.0 * scale), int(14.0 * scale), white)
+	_fill_ellipse(img, cx - int(8.0 * scale),  cy - int(8.0 * scale), int(26.0 * scale), int(18.0 * scale), white)
+	_fill_ellipse(img, cx + int(14.0 * scale), cy - int(4.0 * scale), int(24.0 * scale), int(16.0 * scale), white)
+	_fill_ellipse(img, cx + int(32.0 * scale), cy + int(2.0 * scale), int(20.0 * scale), int(13.0 * scale), white)
+
+func _fill_ellipse(img: Image, cx: int, cy: int, rx: int, ry: int, c: Color) -> void:
+	if rx <= 0 or ry <= 0:
+		return
+	for y in range(-ry, ry + 1):
+		for x in range(-rx, rx + 1):
+			# Standard ellipse equation: (x/rx)² + (y/ry)² ≤ 1
+			var nx: float = float(x) / float(rx)
+			var ny: float = float(y) / float(ry)
+			if nx * nx + ny * ny <= 1.0:
+				_safe_set(img, cx + x, cy + y, c)
+
+# S-401 §H2.5 — chimney smoke: 3 small grey puffs rising from the
+# chimney corner of each house, with decreasing alpha so the column
+# fades into sky (per the "≥1 chimney smoke particle visible above
+# each house" acceptance criterion).
+func _blit_chimney_smoke(img: Image, anchor: Vector2i) -> void:
+	# House composite is 192×192 with bottom-centre at (anchor.x, anchor.y).
+	# Top edge is at y = anchor.y - 192. Chimney sits in the right column
+	# of row 0 of the 3×3 tile composite (col 2 = x ∈ [128..192] of 192-wide
+	# composite, centred at anchor.x + 32), and the chimney lip is the
+	# top quarter of that row, so on-screen at (anchor.x + 32, anchor.y - 176).
+	var sx := anchor.x + 32
+	var sy := anchor.y - 176
+	# Three rising puffs — each smaller and more transparent.
+	_fill_circle_alpha(img, sx,      sy - 12, 8, Color(0.85, 0.85, 0.88, 0.85))
+	_fill_circle_alpha(img, sx + 4,  sy - 28, 7, Color(0.90, 0.90, 0.92, 0.65))
+	_fill_circle_alpha(img, sx + 10, sy - 44, 6, Color(0.94, 0.94, 0.96, 0.45))
+
+func _fill_circle_alpha(img: Image, cx: int, cy: int, r: int, c: Color) -> void:
 	for y in range(-r, r + 1):
 		for x in range(-r, r + 1):
 			if x * x + y * y <= r * r:

@@ -2,6 +2,84 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 85 — S-401 — fix VIRAL AESTHETIC GATE: house wallpaper grid → coherent single-dwelling silhouettes
+
+**Symptom.** Iter-84 fixed the empty-iso-stage regression so the
+canonical `docs/screenshots/action.png` actually rendered houses +
+characters again — but the user verdict was still "丑的一比" (very
+ugly). The house composites read as a 3×3 wallpaper of identical
+brick-wall-with-door tiles, stamping THREE doors per house instead
+of one. The world also had no ambient detail: flat sky gradient, no
+clouds, no chimney smoke, single grey mountain triangle.
+
+**Root cause.** The original Kenney recipe in
+`scripts/gen-3rd-party-composites.mjs` picked tiles 84/85/86 (the
+WALL-BOTTOM row, where each tile contains an entire door panel
+sprite) for all 3 rows and all 3 columns, treating them as if they
+were neutral wall tiles. The pack actually distinguishes:
+* tiles 48-50 / 52-54 = roof slabs (chimney lives in column-2 of
+  the slate / red variants),
+* tiles 72-75 / 76-79 = wall-top edges + door-arch tiles (door arch
+  spans two vertical tiles, the upper half lives here),
+* tile 84 = window-on-wall (stones + mullion + curtain),
+* tiles 85/86/87 = brown door-panel L/C/R, 88-91 = grey equivalents.
+
+**Fix.** Rewrote `HOUSE_RECIPES` to a 3×3 coherent silhouette per
+variant: row 0 = roof_top with chimney, row 1 = wall_top with door
+arch in centre column + edge stones, row 2 = wall_bot with window
++ door panel + window. Four variants now pair distinct roof
+palettes (red shingle vs grey slate) with distinct wall palettes
+(brown cottage vs grey stone), so the 4 dwellings read as 4
+different houses, not 4 tinted copies of one. Wired
+`render_action_static.gd` to route each player through
+`SpriteAtlas.texture_for_house(variant, 0)` so each anchor blits
+its own pack instead of always blitting variant 0 with a roof tint.
+
+Added §H2.5 ambient detail to the same renderer:
+* 5-triangle multi-tier mountain backdrop with snow caps and
+  deterministic pixel-noise speckle (cool slate base, mid-warm
+  body, dark front ridge),
+* 3 lobed cloud blobs (4 overlapping ellipses + soft drop-shadow)
+  placed at varied altitudes,
+* per-anchor chimney smoke (3 rising puffs with decreasing alpha),
+* 4-variant ground tiles (light grass / dark grass / dirt path on
+  the gx==0 / gy==0 axes / cobble at corners) plus 4 deterministic
+  tuft speckles per tile so a 256×256 ground sample contains ≥4
+  distinct hue clusters.
+
+**Why a brand-new HOUSE_RECIPES rather than tweaking the old one.**
+The first attempt at S-401 used a 3×4 (192×256) layout: roof_top +
+roof_eave + wall_top + wall_bot. The doubled roof row stacked as a
+tile-tall tower silhouette instead of a single-storey cottage —
+visually a multi-storey apartment rather than a Stardew village
+home. Dropping the eave row and snapping back to 3×3 = 192×192
+gives the proper peaked-roof + door + flanking-windows silhouette.
+
+**Acceptance.**
+* `tests/render_action_static.gd` writes `docs/screenshots/action.png`
+  → 4 visually distinct houses, peaked-roof + 1 door + 2 windows
+  per house, chimney smoke, clouds, multi-tier mountains, textured
+  iso ground.
+* `tests/check_action_coverage.gd` PASS — all 4 anchors ≥ 30 % non-bg
+  coverage (94 % / 50 % / 71 % / 75 % house, 38-52 % character).
+* `tests/render_house_atlas.gd` PASS — atlas regenerates at 768×192.
+* `tests/smoke_landing_hero.gd` PASS — 4 houses + 4 chars + 5 controls.
+* `pnpm test` 90/90 (79 shared + 11 server).
+* §I.0 grep clean (only `Fx.gd` particle dots, carved out by SpriteAtlas).
+
+**Files touched.**
+* `scripts/gen-3rd-party-composites.mjs` — recipe rewrite, header
+  + buildHouse comments.
+* `client/assets/sprites/3rd-party/composites/house_v[0-3]_d[0-3].png`
+  — 16 PNGs regenerated.
+* `client/tests/render_action_static.gd` — variant routing,
+  multi-tier mountain, cloud blobs, chimney smoke, ground variants.
+* `client/tests/check_action_coverage.gd` — anchor y updated to
+  match render anchors.
+* `client/tests/smoke_landing_hero.gd` — accepts 192 or 256-tall
+  composites (legacy + S-401).
+* `docs/screenshots/action.png` — regenerated.
+
 ## Iteration 84 — S-393 — fix VISUAL REGRESSION: empty iso stage from typed-assignment abort
 
 **Symptom.** `docs/screenshots/action.png` (the brief's flagship

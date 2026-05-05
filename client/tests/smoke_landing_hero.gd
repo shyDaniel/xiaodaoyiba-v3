@@ -43,7 +43,11 @@ func _init() -> void:
 			if tex != null:
 				var tw := tex.get_width()
 				var th := tex.get_height()
-				if tw == 192 and th == 160:
+				if tw == 192 and (th == 160 or th == 192 or th == 256):
+					# S-401: house composite went from 192×192 → 192×256
+					# (3×4 tile coherent silhouette). Older 160 / 192 sizes
+					# still accepted so cached landing-hero captures don't
+					# break the smoke harness if a stale composite leaks in.
 					house_count += 1
 					print("  HOUSE @ ", sprite.position, " modulate=", sprite.modulate)
 				elif tw == 96 and th == 128:

@@ -18,8 +18,9 @@ extends SceneTree
 const W := 1280
 const H := 720
 
-# Anchors match render_action_static.gd:
-#   origin_x = W/2 = 640, origin_y = H/2 + 40 = 400.
+# Anchors match render_action_static.gd. S-401 final design: house
+# composite is 192×192 (3-row coherent silhouette), anchors at
+# origin_y ± 160. origin_x = W/2 = 640, origin_y = H/2 + 40 = 400.
 #   Top-left  = (origin_x - 260, origin_y - 160) = (380, 240)
 #   Top-right = (origin_x + 120, origin_y - 160) = (760, 240)
 #   Bot-left  = (origin_x - 260, origin_y + 160) = (380, 560)
@@ -81,6 +82,8 @@ func _init() -> void:
 	for i in range(ANCHORS.size()):
 		var a: Vector2i = ANCHORS[i]
 		# House bbox: 192×192 centered horizontally on anchor.x, bottom at anchor.y.
+		# S-401: 3×3 tile composite (roof+wall_top+wall_bot) — single
+		# dwelling silhouette, peaked-roof + door + flanking-windows.
 		var hx0 := a.x - 96
 		var hy0 := a.y - 192
 		var hx1 := a.x + 96

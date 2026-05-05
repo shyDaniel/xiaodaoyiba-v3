@@ -10,7 +10,14 @@
 //
 // Outputs:
 //   client/assets/sprites/3rd-party/composites/house_<variant>_<damage>.png
-//     192×160 — variants 0..3, damage 0..3
+//     192×192 — variants 0..3, damage 0..3
+//     S-401: redesigned recipe from "3×3 wallpaper of identical
+//     wall-bottom tiles (3 doors stamped per house)" to a coherent
+//     3-row silhouette: roof slab w/ chimney, wall-top w/ door arch,
+//     wall-bot w/ window+door+window. Each variant pairs a distinct
+//     roof palette (red shingle / grey slate) with a distinct wall
+//     palette (brown cottage / grey stone) so all 4 dwellings read
+//     as 4 different houses, not 4 tinted copies of one.
 //   client/assets/sprites/3rd-party/composites/character_<state>.png
 //     96×128 — states ALIVE_CLOTHED, ATTACKING, ALIVE_PANTS_DOWN,
 //              ALIVE_BRIEFS_ONLY, DEAD
@@ -167,26 +174,82 @@ function loadTile(dir, idx) {
 // roof_mid + roof_right on the top row, wall + door + wall on the
 // bottom row.  Variants 0..3 swap the roof colour palette.
 
-// Tiny Town building tile picks (verified pixel-by-pixel):
-//   roof L/M/R (red-shingle):     48 / 49 / 50   (row 4 grey roof)
-//   roof L/M/R (red-shingle alt): 36 / 37 / 38   (row 3 brown/cream)
-//   wall L/M/R w/door (cream):    72 / 73 / 74
-//   wall L/M/R w/window (cream):  84 / 85 / 86
-//   wall front w/ window (alt):   96 / 97 / 98   (stone)
-//   wall stone variant:           108 / 109 / 110
-// Recipe:
-//   row 0 = roof-top  (slope ridge)
-//   row 1 = roof-eave (transition)
-//   row 2 = wall      (door + window flanks)
+// Tiny Town building tile picks (verified pixel-by-pixel via tile zoom
+// renders at /tmp/tiles_labeled.png + /tmp/walls_huge.png — S-401):
+//
+//   ROOF SLABS (row 4, idx 48-55):
+//     48 = grey-slate roof-top LEFT slab
+//     49 = grey-slate roof-top MIDDLE slab
+//     50 = grey-slate roof-top RIGHT slab WITH CHIMNEY  ← chimney source
+//     52 = red-shingle roof-top LEFT slab
+//     53 = red-shingle roof-top MIDDLE slab
+//     54 = red-shingle roof-top RIGHT slab WITH CHIMNEY ← chimney source
+//
+//   ROOF EAVES (row 5, idx 60-67) — same body as roof slabs but with
+//   a hard porch-shadow band along the bottom edge so the roof reads
+//   as "ending" against the wall below:
+//     60/61/62 = grey-slate eave L/M/R
+//     64/65/66 = red-shingle eave L/M/R
+//     63 = grey peak (single-tile-wide hut peak — unused for 3-wide houses)
+//     67 = red peak  (single-tile-wide hut peak — unused for 3-wide houses)
+//
+//   WALL TOP ROW (row 6, idx 72-79) — under the eave, contains the
+//   DOOR ARCH (dark void above where the door panel will sit):
+//     72 = brown-wall LEFT-EDGE  (stones at left margin + bottom band)
+//     73 = brown-wall MIDDLE     (no edges, just stone speckle)
+//     74 = brown DOOR ARCH        (centered dark doorway opening)
+//     75 = brown-wall RIGHT-EDGE (stones at right margin + bottom band)
+//     76 = grey-stone wall LEFT-EDGE
+//     77 = grey-stone wall MIDDLE
+//     78 = grey DOOR ARCH
+//     79 = grey-stone wall RIGHT-EDGE
+//
+//   WALL BOTTOM ROW (row 7, idx 84-91) — at ground level, contains
+//   the DOOR PANEL and WINDOW tiles:
+//     84 = brown WINDOW (full window-on-wall: stones+mullion+curtain)
+//     85 = brown door panel LEFT  (door body + frame on left)
+//     86 = brown door panel CENTER (door body centered with frames both sides)
+//     87 = brown door panel RIGHT (door body + frame on right)
+//     88 = grey WINDOW
+//     89 = grey door panel LEFT
+//     90 = grey door panel CENTER
+//     91 = grey door panel RIGHT
+//
+// Recipe is a 3-cols × 3-rows grid (scaled 4× → 192×192 px composite):
+//   row 0 = roof slabs       (chimney lives in column 2 via tile 50/54)
+//   row 1 = wall-top         (door arch in column 1, edge stones in 0/2)
+//   row 2 = wall-bot         (door panel center in column 1, windows in 0/2)
+//
+// Earlier S-401 attempt used a 4-row recipe (roof + roof_eave + wall_top
+// + wall_bot) but the doubled roof/eave bands stacked as a tile-tall
+// tower silhouette rather than a single-storey cottage. Dropping the
+// eave row gives a Stardew-shaped peaked-roof + door + flanking-windows
+// silhouette — coherent and readable at iso scale.
 const HOUSE_RECIPES = [
-  // Variant 0 — RED shingle cottage + brown wall + cream door (most common)
-  { roof: [52, 53, 54], eave: [64, 65, 66], wall: [84, 85, 86] },
-  // Variant 1 — GREY slate cottage + grey wall + door
-  { roof: [48, 49, 50], eave: [60, 61, 62], wall: [88, 89, 90] },
-  // Variant 2 — RED roof + GREY stone wall (mixed)
-  { roof: [52, 53, 54], eave: [64, 65, 66], wall: [88, 89, 90] },
-  // Variant 3 — GREY roof + brown cottage wall (mixed)
-  { roof: [48, 49, 50], eave: [60, 61, 62], wall: [84, 85, 86] },
+  // Variant 0 — RED shingle cottage + BROWN wall (warm cottage)
+  {
+    roof_top: [52, 53, 54],   // red roof slabs, chimney on right
+    wall_top: [72, 74, 75],   // brown left-edge, door arch, right-edge
+    wall_bot: [84, 86, 84],   // brown window, door panel center, brown window
+  },
+  // Variant 1 — GREY slate roof + GREY-stone wall (cooler dwelling)
+  {
+    roof_top: [48, 49, 50],
+    wall_top: [76, 78, 79],   // grey-stone left-edge, door arch, right-edge
+    wall_bot: [88, 90, 88],   // grey window, door panel center, grey window
+  },
+  // Variant 2 — RED roof + GREY stone wall (mixed, distinct silhouette)
+  {
+    roof_top: [52, 53, 54],
+    wall_top: [76, 78, 79],
+    wall_bot: [88, 90, 88],
+  },
+  // Variant 3 — GREY roof + BROWN cottage wall (mixed)
+  {
+    roof_top: [48, 49, 50],
+    wall_top: [72, 74, 75],
+    wall_bot: [84, 86, 84],
+  },
 ];
 
 // Tiny Town ground tile picks for the 4-variant 256×64 atlas:
@@ -265,23 +328,25 @@ function applyDamage(canvas, dmg) {
   }
 }
 
-// ── House composite: 192×160 ──────────────────────────────────────────────
+// ── House composite: 192×192 ──────────────────────────────────────────────
 //
-// Layout: 3 cols × 2 rows of 64×64 zoomed tiles, drawn from a 9-tile
-// recipe (roof L/M/R + wall L/M/R + floor L/M/R).  Sprite anchor is
-// centered (matches Character.tscn's centered=true on Sprite2D).
+// Layout: 3 cols × 3 rows of 64×64 zoomed tiles drawn from a 9-tile
+// recipe (roof_with_chimney + wall_top_with_door_arch +
+// wall_bot_with_door_panel_and_windows). Each cell is a 16×16 source
+// tile scaled 4×. Sprite anchor: bottom-center, so renderers should
+// place anchor.x at (canvas_x + 96) and anchor.y at (canvas_y + 192).
 function buildHouse(variant, dmg) {
   const recipe = HOUSE_RECIPES[variant];
-  // 3 cols × 3 rows of 16-px tiles, scale 4× → 64-px tiles → 192×192 native.
-  // We render onto a 192×192 canvas so each tile is a square 64×64 cell.
   const SCALE = 4;
-  const TILE = 64;
-  const W = TILE * 3;        // 192
-  const H = TILE * 3;        // 192
+  const TILE = 64;            // 16-px source × 4
+  const COLS = 3;
+  const ROWS = 3;
+  const W = TILE * COLS;      // 192
+  const H = TILE * ROWS;      // 192
   const c = new Canvas(W, H);
-  const rows = [recipe.roof, recipe.eave, recipe.wall];
-  for (let r = 0; r < 3; r++) {
-    for (let col = 0; col < 3; col++) {
+  const rows = [recipe.roof_top, recipe.wall_top, recipe.wall_bot];
+  for (let r = 0; r < ROWS; r++) {
+    for (let col = 0; col < COLS; col++) {
       const idx = rows[r][col];
       const t = loadTile(TT_TILES, idx);
       tileToCanvas(t, col * TILE, r * TILE, SCALE, c);
