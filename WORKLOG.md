@@ -2,6 +2,50 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 78 — S-367 — LandingHero BattleLog localized to CJK
+
+**Symptom.** The landing right-rail demo BattleLog — the FIRST
+surface a first-time visitor sees, sitting one screen-region right
+of the rhyme couplet "小刀一把，来到你家 / 扒你裤衩，直接咔嚓！" —
+was hard-coded English: header "BattleLog", tag chips
+"R1.PREP/R1.REVEAL/R1.ACTION/R1.RESULT", badges "PRP/RVL/ACT/RES",
+messages "Ming preps" / "Rock Paper Scissors" / "Pull Hong's pants"
+/ "Hong pants down". Iter-71→75 localized every other user-visible
+surface but missed this one, breaking brand identity right at the
+top of the funnel.
+
+**Fix.** `client/scripts/ui/LandingHero.gd` now reads header `战报`,
+tags `R1.准备 / R1.亮拳 / R1.动作 / R1.结果`, badges from the
+canonical {平/拳/扒/砍/穿/死} palette painted with `BattleLog.gd`'s
+exact colors (平 gray → 拳 cyan → 扒 yellow → 死 purple, matching
+the narrative beat from prep through shame), and messages drawn
+from the same 来到你家/扒裤衩 voice as `shared/src/narrative/lines.ts`
+("Ming 摩拳擦掌" / "Ming 一个箭步上前，扒下了 Hong 的裤衩" verbatim
+from `pullPantsTemplate`). Bumped verb-badge font 11→14px so the
+single CJK glyph reads cleanly, added word-wrap on the body label,
+widened rail 280→340px and row pitch 56→72px to clear the now-
+2-line CJK narration without overlap.
+
+**Tests.** Added `client/tests/render_landing_hero.gd` — walks every
+Label inside `IsoPreview` and hard-fails on every brief substring
+("BattleLog", "R1.PREP", "R1.REVEAL", "R1.ACTION", "R1.RESULT",
+"PRP "/"RVL "/"ACT "/"RES ", "Ming preps", "Rock Paper Scissors",
+"Pull Hong", "pants down"); positive contract additionally requires
+战报 + ≥1 round-phase tag + ≥1 canonical CJK badge to be present so
+"removed everything but added nothing" regressions also fail. Wired
+into `.github/workflows/ci.yml`. Existing render_landing.gd and
+smoke_landing_hero.gd still pass.
+
+**Verification.** Rebuilt HTML5 (`pnpm build:client`), drove headless
+chromium against `http://localhost:5173/` via
+`OUT=screenshots/judge-landing-live.png scripts/validate-browser.sh`,
+opened the PNG with Read. Right-rail reads entirely in CJK: yellow
+战报 header, all four R1.xxx tags localized, all four verb-badge
+chips show single CJK glyphs against the canonical palette colors,
+and the four narration lines match the in-game voice. Only proper
+nouns Ming/Hong/Bot-A persist — the brief explicitly preserved those
+by quoting "Ming 摩拳擦掌" and "扒下了 Hong 的裤衩".
+
 ## Iteration 76 — S-362 — Stale HTML5 build guard + re-export
 
 **Symptom.** `client/build/index.pck` mtime was older than the iter-75

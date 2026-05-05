@@ -49,17 +49,23 @@ const PLAYERS := [
 	 "name_color": Color(1.00, 0.85, 0.40, 1.0)},
 ]
 
-# BattleLog rows shown in the right rail — same six entries as the README
-# hero so the live landing matches the marketing screenshot.
+# BattleLog rows shown in the right rail. Localized to the same CJK
+# rhyme voice as the in-game BattleLog (BattleLog.gd VERB_COLORS) and
+# the shared narrative pool (shared/src/narrative/lines.ts):
+#   tags  — 第N回合 phase chips: R1.准备 / R1.亮拳 / R1.动作 / R1.结果
+#   badges — drawn from the canonical palette {平/拳/扒/砍/穿/死}
+#            with the same colors the in-game log paints:
+#              平 gray, 拳 cyan, 扒 yellow, 砍 red, 穿 cyan-blue, 死 purple
+#   msgs  — voice matches lines.ts (扒下了X的裤衩 / 一个箭步上前 / 摩拳擦掌)
 const LOG_ROWS := [
-	{"tag": "R1.PREP",   "verb": "PRP", "verb_color": Color(1.0, 0.6, 0.6, 1.0),
-	 "msg": "Ming preps"},
-	{"tag": "R1.REVEAL", "verb": "RVL", "verb_color": Color(0.55, 0.85, 1.0, 1.0),
-	 "msg": "Rock Paper Scissors"},
-	{"tag": "R1.ACTION", "verb": "ACT", "verb_color": Color(1.0, 0.85, 0.30, 1.0),
-	 "msg": "Pull Hong's pants"},
-	{"tag": "R1.RESULT", "verb": "RES", "verb_color": Color(0.75, 0.55, 1.0, 1.0),
-	 "msg": "Hong pants down"},
+	{"tag": "R1.准备", "verb": "平", "verb_color": Color(0.60, 0.62, 0.66, 1.0),
+	 "msg": "Ming 摩拳擦掌，盯着 Hong 家门口"},
+	{"tag": "R1.亮拳", "verb": "拳", "verb_color": Color(0.36, 0.86, 0.94, 1.0),
+	 "msg": "石头 布 剪刀 — 三家齐出，Ming 拔了头筹"},
+	{"tag": "R1.动作", "verb": "扒", "verb_color": Color(1.00, 0.84, 0.20, 1.0),
+	 "msg": "Ming 一个箭步上前，扒下了 Hong 的裤衩"},
+	{"tag": "R1.结果", "verb": "死", "verb_color": Color(0.66, 0.42, 0.94, 1.0),
+	 "msg": "Hong 蹲在门口走光，红裤衩落了一地"},
 ]
 
 func _ready() -> void:
@@ -237,21 +243,22 @@ func _build_battle_log() -> void:
 	sb.corner_radius_bottom_left = 8
 	sb.corner_radius_bottom_right = 8
 	rail.add_theme_stylebox_override("panel", sb)
-	rail.position = Vector2(220, -200)
-	rail.size = Vector2(240, 280)
+	rail.position = Vector2(220, -210)
+	rail.size = Vector2(240, 340)
 	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(rail)
 	var title := Label.new()
-	title.text = "BattleLog"
+	title.text = "战报"
 	title.position = Vector2(12, 8)
 	title.size = Vector2(216, 24)
 	title.add_theme_font_size_override("font_size", 16)
 	title.add_theme_color_override("font_color", Color(1.0, 0.95, 0.40, 1.0))
 	rail.add_child(title)
-	# Rows.
+	# Rows. Pitch widened from 56→72px to leave headroom for the
+	# autowrapped 2-line CJK narration in the ACTION/RESULT rows.
 	for i in range(LOG_ROWS.size()):
 		var row: Dictionary = LOG_ROWS[i]
-		var row_y := 36 + i * 56
+		var row_y := 36 + i * 72
 		_build_log_row(rail, 8, row_y, row)
 
 func _build_log_row(parent: Control, x: int, y: int, row: Dictionary) -> void:
@@ -291,16 +298,21 @@ func _build_log_row(parent: Control, x: int, y: int, row: Dictionary) -> void:
 	var verb_lbl := Label.new()
 	verb_lbl.text = String(row["verb"])
 	verb_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	verb_lbl.position = Vector2(0, 2)
-	verb_lbl.size = Vector2(38, 18)
-	verb_lbl.add_theme_font_size_override("font_size", 11)
+	verb_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	verb_lbl.position = Vector2(0, 0)
+	verb_lbl.size = Vector2(38, 22)
+	# Single CJK glyph reads cleaner at 14px than the prior 11px ASCII tag.
+	verb_lbl.add_theme_font_size_override("font_size", 14)
 	verb_lbl.add_theme_color_override("font_color", Color(0.10, 0.08, 0.06, 1.0))
 	verb_bg.add_child(verb_lbl)
-	# Body line — full message under the chip + badge.
+	# Body line — full message under the chip + badge. Autowrap so the
+	# longer CJK narration ("Ming 一个箭步上前，扒下了 Hong 的裤衩")
+	# still reads inside the 240px-wide rail.
 	var msg := Label.new()
 	msg.text = String(row["msg"])
 	msg.position = Vector2(x, y + 26)
-	msg.size = Vector2(220, 20)
+	msg.size = Vector2(224, 28)
 	msg.add_theme_font_size_override("font_size", 12)
 	msg.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
+	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(msg)

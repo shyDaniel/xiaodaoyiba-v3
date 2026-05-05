@@ -97,3 +97,10 @@ jobs:
       # Button-pressed bug. Test hot-swaps Net's script with a recorder.
       - name: godot lobby keybind smoke (S-205)
         run: godot --headless --path client --script res://tests/smoke_lobby_keybinds.gd
+
+      # S-367: landing-hero right-rail BattleLog must render in CJK
+      # (战报 + R1.准备/亮拳/动作/结果 + 平/拳/扒/死 badges + nursery-
+      # rhyme narration), not the pre-iter-71 ASCII placeholders
+      # (BattleLog / R1.PREP / PRP / "Ming preps" / "Pull Hong's pants").
+      - name: godot landing-hero CJK substring contract (S-367)
+        run: godot --headless --path client --script res://tests/render_landing_hero.gd
