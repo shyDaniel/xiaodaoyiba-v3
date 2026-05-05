@@ -93,6 +93,21 @@ var _label_resident_dimmed: bool = false
 @onready var _label: Label = $NameLabel
 @onready var _throw_glyph: Label = $ThrowGlyph
 @onready var _knife: Sprite2D = $Knife
+# S-309 — persistent shame badge. A permanent emoji glyph rendered
+# above the head whenever this character is in ALIVE_PANTS_DOWN. The
+# badge is the failsafe for the §C7 "shame must be visible at every
+# phase" gate: the body sprite's red briefs region is geometrically
+# correct but at the live HTML5 viewport scale (sprite ≈48 px on
+# screen) it can be occluded by an adjacent visitor character or
+# tucked behind the house's wall band. The badge sits 130 px above
+# the character anchor — well above any house roof — and gently
+# pulses so it reads as an active "this player is exposed" marker
+# even when the body silhouette is hidden.
+@onready var _shame_badge: Label = $ShameBadge
+
+# Tween handle so we can stop the previous pulse before starting a
+# new one when set_persistent_pants_down toggles repeatedly.
+var _shame_badge_tween: Tween = null
 
 func _atlas() -> Node:
 	return get_node_or_null("/root/SpriteAtlas")
@@ -112,6 +127,8 @@ func _ready() -> void:
 	_label_default_left = _label.offset_left
 	_label_default_right = _label.offset_right
 	_throw_glyph.visible = false
+	if _shame_badge != null:
+		_shame_badge.visible = false
 	# Knife sprite from atlas. Centered=false; offset to pivot at handle.
 	var atlas := _atlas()
 	if atlas != null and atlas.knife_texture != null:
@@ -369,6 +386,14 @@ func _refresh_visual() -> void:
 	if _body != null:
 		_body.modulate = Color(1.0, 1.0, 1.0, 1.0).lerp(tint, 0.45)
 
+	# S-309 — persistent shame badge. Visible whenever the rendered
+	# state is PANTS_DOWN, regardless of whether persistence got there
+	# via the State enum or the persistent_pants_down override. RUSH /
+	# ATTACK / DEAD intentionally hide the badge: during a rush the
+	# character is in motion and the body silhouette + knife arc carry
+	# the read; on death the shame is moot.
+	_refresh_shame_badge(visual_state == "ALIVE_PANTS_DOWN")
+
 	# Knife visibility: only shown while ATTACKING.
 	if _knife == null:
 		return
@@ -380,3 +405,38 @@ func _refresh_visual() -> void:
 		_knife.scale.x = sign
 
 	# DEAD overlay handled by play_death tween.
+
+# S-309 — show/hide the persistent shame emoji glyph above the head.
+# When active, the badge fades in and starts a soft scale + alpha
+# pulse so the marker reads as a live "this player is exposed" cue
+# even at the live HTML5 viewport scale where the body's red briefs
+# region can be occluded by visiting actors or the house wall band.
+# Idempotent: calling this with the same `active` flag while the
+# pulse is already running is a no-op (we keep the existing tween
+# instead of restarting it every _refresh_visual tick).
+func _refresh_shame_badge(active: bool) -> void:
+	if _shame_badge == null:
+		return
+	if active:
+		if _shame_badge.visible and _shame_badge_tween != null and _shame_badge_tween.is_valid():
+			return  # already pulsing
+		_shame_badge.visible = true
+		_shame_badge.modulate.a = 1.0
+		_shame_badge.scale = Vector2.ONE
+		_shame_badge.pivot_offset = _shame_badge.size * 0.5
+		if _shame_badge_tween != null and _shame_badge_tween.is_valid():
+			_shame_badge_tween.kill()
+		_shame_badge_tween = create_tween().set_loops()
+		_shame_badge_tween.tween_property(_shame_badge, "scale", Vector2(1.18, 1.18), 0.6)\
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_shame_badge_tween.parallel().tween_property(_shame_badge, "modulate:a", 0.7, 0.6)\
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_shame_badge_tween.tween_property(_shame_badge, "scale", Vector2.ONE, 0.6)\
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_shame_badge_tween.parallel().tween_property(_shame_badge, "modulate:a", 1.0, 0.6)\
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	else:
+		if _shame_badge_tween != null and _shame_badge_tween.is_valid():
+			_shame_badge_tween.kill()
+			_shame_badge_tween = null
+		_shame_badge.visible = false

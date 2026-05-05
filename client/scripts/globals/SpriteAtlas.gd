@@ -127,22 +127,58 @@ func _render_character(state: String) -> ImageTexture:
 	_fill_rect(img, cx + 2, 116, 14, 6, C_SHOE)
 
 	if pants_down:
+		# S-309 — bigger, brighter, unmistakable shame silhouette.
+		# Earlier version had a 14-px-tall briefs band on a 96-px-tall
+		# sprite which at the live HTML5 viewport scale (sprite ~48 px
+		# on screen) collapsed to a 7-px stripe that read as a generic
+		# dark band identical to a belt. This version:
+		#   * extends the bare-skin thigh region from y=86–104 down to
+		#     y=86–112 (22 px instead of 18 px) so the silhouette has
+		#     a clearly bare lower-body block rather than a thin
+		#     collar of skin between briefs and pants.
+		#   * widens the briefs band from 14 → 20 px tall (y=76–96)
+		#     so the bright red occupies ~16 % of the sprite height
+		#     (from ~11 % previously) — at the live viewport scale
+		#     that's a 10-px scarlet block clearly visible to the eye.
+		#   * makes the briefs WIDER than the torso (38 px vs ~32 px
+		#     for the trapezoidal torso base), so the briefs poke
+		#     out laterally as a distinct red 'belt' silhouette
+		#     rather than tucking entirely behind the white shirt.
+		#   * uses C_BRIEFS_HI (almost pink) for the top stripe and
+		#     keeps the deeper red below for cell shading — read at
+		#     thumbnail scale this is a dramatic two-tone red wedge
+		#     between the torso and the legs.
+		#   * shrinks the pants-pool ellipse at the ankles slightly
+		#     so the shoes still read as feet rather than blobs.
+
 		# Pants pooled around ankles — dark heap on each foot.
 		_fill_ellipse(img, cx - 9, 116, 9, 5, C_PANTS_SHADE)
 		_fill_ellipse(img, cx + 9, 116, 9, 5, C_PANTS_SHADE)
-		# Bare thighs (skin) where pants used to cover.
-		_fill_rect(img, cx - 14, 86, 10, 18, C_SKIN)
-		_fill_rect(img, cx + 4, 86, 10, 18, C_SKIN)
-		_fill_rect(img, cx - 14, 86, 4, 18, C_SKIN_SHADE)
-		_fill_rect(img, cx + 4, 86, 4, 18, C_SKIN_SHADE)
-		# Red briefs.
-		_fill_rect(img, cx - 18, 78, 36, 14, C_BRIEFS)
-		_fill_rect(img, cx - 18, 78, 36, 4, C_BRIEFS_HI)
-		_fill_rect(img, cx - 18, 88, 36, 4, C_BRIEFS_SHADE)
-		# Briefs leg-cuts (small triangles).
+		# Bare thighs (skin) where pants used to cover. EXTENDED to
+		# y=112 so the bare-leg silhouette spans 26 px (was 18 px).
+		_fill_rect(img, cx - 14, 86, 10, 26, C_SKIN)
+		_fill_rect(img, cx + 4, 86, 10, 26, C_SKIN)
+		_fill_rect(img, cx - 14, 86, 4, 26, C_SKIN_SHADE)
+		_fill_rect(img, cx + 4, 86, 4, 26, C_SKIN_SHADE)
+		# Red briefs — WIDENED (38 px wide vs 36) and TALLER (20 px vs
+		# 14). Top stripe is bright pink-red highlight, mid is base
+		# red, bottom is shaded red. Reads as a dramatic two-tone
+		# block at any viewport scale.
+		_fill_rect(img, cx - 19, 76, 38, 20, C_BRIEFS)
+		_fill_rect(img, cx - 19, 76, 38, 6, C_BRIEFS_HI)
+		_fill_rect(img, cx - 19, 90, 38, 6, C_BRIEFS_SHADE)
+		# Briefs leg-cuts (small triangles) — adjusted to match the
+		# new 20-px band. Triangles at the bottom corners so the
+		# briefs taper into the bare thighs rather than ending
+		# square.
 		for i in range(8):
-			img.set_pixel(cx - 18 + i, 88 + i, Color(0, 0, 0, 0))
-			img.set_pixel(cx + 17 - i, 88 + i, Color(0, 0, 0, 0))
+			img.set_pixel(cx - 19 + i, 95 - i, Color(0, 0, 0, 0))
+			img.set_pixel(cx + 18 - i, 95 - i, Color(0, 0, 0, 0))
+		# Hip bone highlight — two 1-px-tall lighter red dots on the
+		# briefs top stripe so the band reads as a 3D garment at
+		# pixel-art scale rather than a flat rectangle.
+		img.set_pixel(cx - 12, 78, Color(1.0, 0.7, 0.7, 1.0))
+		img.set_pixel(cx + 12, 78, Color(1.0, 0.7, 0.7, 1.0))
 
 	# Torso (tintable — drawn in white so modulate hues it).
 	# Slightly trapezoidal: wider at shoulders.
