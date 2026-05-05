@@ -2,6 +2,47 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 13 — S-155 — §F1 README rewrite: status reflects shipped iterations 1–12
+
+**Bug:** README.md:60-64 still read "Iteration 1 (S-001) scaffolded the
+pnpm workspace root. The Godot client, the v2 server port, and the
+headless sim are pending in subsequent subtasks." That was true at
+iteration 1 but flatly false by iteration 12 — pnpm test 90/90 green,
+sim healthy, Godot HTML5 build present, audio shipped, CI workflow
+landed, codegen-timing drift gate live. A first-time HN visitor reading
+the README would conclude the project is a half-built scaffold.
+
+**Fix:**
+1. Copied `/tmp/xdyb_action.png` (rendered by `client/tests/render_game.gd`
+   against the committed Godot project) to `docs/screenshots/action.png`
+   and embedded it as a hero image right under the pitch paragraph so
+   anyone scrolling the README sees what the game actually looks like
+   without cloning.
+2. Replaced the stale Status section with six paragraphs enumerating
+   exactly what's shipped: TS shared+server (90 tests, S-002/S-003),
+   headless sim CLI with the canonical seed=42 acceptance numbers
+   (tie_rate 0.260, max winner 0.40, PULL_OWN_PANTS_UP ≥ 1, S-004),
+   Godot HTML5 client (iso ground, procedural sprite atlas, knife
+   sprite, NotoColorEmoji-rendered ✊✋✌, persistent shame, winner
+   picker, S-005/S-098/S-109/S-119), 8 SFX + 3 BGM cross-fade audio
+   bus (S-148), full §E5 CI workflow + codegen-drift gate (S-129/S-139),
+   and the codegen-timing single-source-of-truth wiring (S-129).
+3. Added a small "Outstanding" section that points to the open §C11
+   viral-aesthetic / animation-trace / ZOOM_IN-IN-effects items so the
+   reader knows what's in flight without pretending it's done.
+4. Refreshed the Quickstart and Repo-layout blocks to surface
+   `pnpm codegen:timing`, `pnpm codegen:audio`, `docs/screenshots/`,
+   `shared/scripts/codegen-timing.ts`, and `.github/workflows/`.
+
+**Acceptance test (verbatim from S-155 brief) — passes:**
+- `grep -c 'Iteration 1 (S-001)' README.md` → **0** ✓
+- `grep -c 'pending in subsequent' README.md` → **0** ✓
+- README contains `![...](./docs/screenshots/action.png)` ✓
+- `docs/screenshots/action.png` is a committed 80 KB PNG ✓
+- `pnpm test` → **90/90 green** (79 shared + 11 server) in <1s ✓
+
+No source-code changes; docs-only iteration.
+
 ## Iteration 12 — S-148 — §D1/§D2 audio: 8 SFX + 3 BGM WAVs from offline ZzFX
 
 **Bug:** `client/assets/audio/sfx/` and `client/assets/audio/bgm/` were
