@@ -556,3 +556,61 @@ boxes), §C11 viral-aesthetic gate (sprites empty), §A4 codegen-
 timing.ts missing, §E5 GitHub Actions workflow absent, characters
 rendering inside house walls in Game.tscn, parallax mountains
 off-screen.
+
+## Iteration 14 (S-162) — §C11 viral aesthetic: shingled roofs, wall noise, porch step, chimney smoke
+
+Pushed `_render_house` in `client/scripts/globals/SpriteAtlas.gd`
+through the four §S-162 acceptance items:
+
+1. **Roof shingles** — horizontal bands every 7 px in `C_ROOF_SHADE`
+   on the front roof face, plus a darker variant on the back/right
+   perspective face, plus a 1-px under-band shadow line for extra
+   definition. Triangle-clipped so the bands respect the gable
+   silhouette.
+2. **Wall noise** — deterministic per-pixel ±7% lightness perturbation
+   on the front-face wall (hash of x,y → ±0.07 RGB delta). Skips
+   wood-grain shade rows + door footprint so the existing structure
+   still reads. Measured σ ≈ 0.040 → 10.23 / 255 (clears the §S-162
+   ≥ 8/255 threshold with margin).
+3. **Porch step** — 4-px tall step in `C_DOOR_SHADE` directly below
+   each door, slightly wider than the door itself, with a 2-px-tall
+   black-α drop shadow under it.
+4. **Chimney smoke** — three stacked semi-transparent grey-white
+   ellipses above the chimney lip in the static atlas, stand-in for
+   a future GPUParticles2D scene.
+
+**Verification:** new `client/tests/render_house_atlas.gd` runs the
+SpriteAtlas autoload, blits all 4 damage stages onto a 768×160 grass
+tile, and asserts:
+
+- wall σ ≥ 8/255  (got 10.23) ✓
+- ≥ 6 dark↔light transitions on the centre-column roof (got 14) ✓
+- ≥ 60 porch-brown pixels under each door (got 176) ✓
+- ≥ 30 smoke-wisp pixels above each chimney (got 271) ✓
+
+Output: `/tmp/xdyb_houses.png` (4-stage tile) and
+`/tmp/xdyb_house_pristine.png` (pristine house close-up).
+
+**Docs gallery refresh:** added `client/tests/render_action_static.gd`
+which composes a 1280×720 game-frame mock without a viewport (headless
+WSL2 currently can't drive `viewport.get_texture()`; `render_game.gd`
+hangs at `save_png` with "Parameter t is null" because the dummy
+rendering driver returns no GPU texture). The static composer blits
+the four updated houses + characters onto an iso ground plane with
+per-player roof tints, mountains, BattleLog rail with 6 colour-coded
+verb-badge rows, phase banner, and the three RPS HandPicker chips.
+The ATTACKING (knife-wielding) character is placed top-left so the
+knife sprite is unambiguously visible; the ALIVE_PANTS_DOWN bot is
+bottom-left so the persistent-shame red briefs are visible. Saved
+to both `/tmp/xdyb_action_static.png` and
+`docs/screenshots/action.png` (overwriting the stale flat-roof
+screenshot).
+
+**Side-by-side judgment:** new houses show 6 shingle bands per roof
+face, distinct pastel roof tints, visible chimney smoke, and a
+porch step under each door. Compared to the previous flat solid-
+colour roofs, the houses now read as "Stardew/Hades-tier indie
+2024" rather than "procedural placeholder".
+
+**Run:** `godot --headless --path client --script res://tests/render_house_atlas.gd` exits 0;
+`pnpm test` 90/90 green; `smoke_lobby.gd` still PASS.
