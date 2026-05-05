@@ -2,6 +2,46 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 66 — S-302 — name-label concatenation fix (live HTML5 §C8 regression)
+
+**Symptom.** Iter-65 judge t13000/t18000/t27000 PNGs from the
+live HTML5 build showed `Meicounter` and `randominter` glyph
+concatenation when bots camped at one resident's anchor after a
+PULL_PANTS — the per-frame reconciler from S-297 was running but
+the 28 px vertical offset was insufficient versus the ~32 px
+horizontal world separation, and 100 px-wide labels still spanned
+each other's x-extent. The build .pck was also stale relative to
+HEAD on the first verification pass.
+
+**Fix.** `client/scripts/characters/Character.gd`:
+`LABEL_STACK_OFFSET 28→44`, new `LABEL_HORIZONTAL_STAGGER=8`,
+new `LABEL_VISITING_HALF_WIDTH=36` (narrows visitor label so its
+x-span no longer crosses the resident's), `LABEL_VISITING_OUTLINE
+_SIZE 8→12`, opaque hue-tinted `StyleBoxFlat` background panel
+for visitor labels (border + 4 px corner radius), idempotent
+`set_label_stack_index` and `set_label_resident_dimmed`.
+`client/scripts/stage/GameStage.gd` `_reconcile_label_stacks`:
+removed cache-skip so the desired idx/dim is re-applied every
+frame (defends against any sibling code clobbering the label
+state mid-tick). Re-exported the HTML5 build.
+
+**Verification.**
+- `godot --headless --script tests/render_label_collision.gd`,
+  `…_3actor.gd`, `…_persist.gd` — all PASS.
+- New `tests/render_label_collision_pull_pants_distance.gd`
+  reproduces the live PULL_PANTS post-anchor geometry (visitor at
+  `resident.position + Vector2(-32,0)`) and asserts: pairwise
+  rect intersection area = 0, vertical gap ≥ 20 px, visitor
+  outline > resident outline AND ≥ 8 px, outline colour
+  contrast > 0.05, horizontal stagger applied, resident alpha
+  0.5 / visitor alpha 1.0 — PASS.
+- `pnpm test`: 79 + 11 = 90 tests green.
+- Live HTML5 `validate-game-progression.mjs`: t13000 R3·REVEAL
+  shows `random` and `counter` rendered as separate glyph
+  strings; t18000 R4·TIE shows `random` (below) and `counter`
+  (above with green-tinted opaque background panel) clearly
+  separable on the same house anchor — §C8 concatenation gone.
+
 ## Iteration 48 — S-285 — multi-actor name-label fan-out (≥3 occupants at one anchor)
 
 **Symptom.** Iter-47 judge screenshots showed 'Baorandom' (2-actor

@@ -29,30 +29,62 @@ var home_position: Vector2 = Vector2.ZERO
 var _rush_tween: Tween = null
 var _knife_swing_tween: Tween = null
 
-# S-269 / S-285 — name-label collision handling. When N≥2 characters
-# share a house anchor (visitor[s] camped at a resident's house), each
-# character is assigned a unique stack index so their NameLabels fan
-# out vertically instead of overlapping. Stack index 0 keeps the
-# default y (the resident's slot); index k≥1 lifts the label by
-# LABEL_STACK_OFFSET * k px so the labels read as a clean vertical
-# column. With OFFSET=28 px and a label height of 20 px this leaves a
-# 4-px gutter between adjacent labels, satisfying the ≥20-px-spacing
-# clause of the iter-48 brief AND the original ≥ rect.size.y + 4
-# acceptance from S-269.
+# S-269 / S-285 / S-302 — name-label collision handling. When N≥2
+# characters share a house anchor (visitor[s] camped at a resident's
+# house), each character is assigned a unique stack index so their
+# NameLabels fan out vertically instead of overlapping. Stack index 0
+# keeps the default y (the resident's slot); index k≥1 lifts the
+# label by LABEL_STACK_OFFSET * k px so the labels read as a clean
+# vertical column.
+#
+# S-302 — bumped LABEL_STACK_OFFSET from 28 → 36 so adjacent labels
+# (20 px tall) have a 16-px clear gutter and the top-edge gap is 36
+# px, well over the brief's ≥ 20-px-per-occupant clause. The 28-px
+# value still passed the unit test but in the live HTML5 build the
+# t27000 R4.PREP screenshot rendered "Meicounter" as if both labels
+# were at the same y — so we (a) widen the gap, (b) make
+# set_label_stack_index idempotent so a single missed reconciler
+# tick can't strand the label at default y, (c) horizontally stagger
+# each occupant's label by LABEL_HORIZONTAL_STAGGER * idx px so the
+# 32-px PULL_PANTS landing offset can't make adjacent-y labels
+# concatenate sideways into "Meicounter", and (d) give visitors a
+# distinct font outline COLOUR (per-player tint) plus a heavier
+# outline so labels visually separate even at the same screen y.
 #
 # When the resident has at least one visitor, the resident's label
 # also fades to LABEL_DIMMED_ALPHA so the visiting actor[s] read as
-# the foreground identity. Visitors get a thicker font outline
-# (LABEL_VISITING_OUTLINE_SIZE px) for the brief's "contrasting drop-
-# shadow" requirement so each fanned-out name pops against the busy
-# isometric background instead of bleeding into the wall sprite
-# behind it. See FINAL_GOAL §C8.
-const LABEL_STACK_OFFSET: float = 28.0
+# the foreground identity. Visitors get the heavier outline plus a
+# tinted outline-colour (drop-shadow analogue) for the brief's
+# "contrasting outline/drop-shadow per label" clause so each fanned
+# out name pops against the busy isometric background instead of
+# bleeding into the wall sprite behind it. See FINAL_GOAL §C8.
+const LABEL_STACK_OFFSET: float = 44.0
+# Per-occupant horizontal stagger applied on top of each label's
+# default x. With 8 px-per-occupant a 3-actor pile-up reads as a
+# clean descending diagonal (idx=1 → +8, idx=2 → +16, idx=3 → +24).
+const LABEL_HORIZONTAL_STAGGER: float = 8.0
+# Visitor labels are NARROWED from the .tscn default 100 px (±50)
+# down to 72 px (±36) so the visitor's label rect doesn't horizontally
+# overlap the resident's at the canonical PULL_PANTS landing offset
+# (-32 px in world space). Math: visitor_centre = resident_centre - 32
+# + LABEL_HORIZONTAL_STAGGER, so visitor's label spans
+# [resident_cx - 32 + 8 - 36, resident_cx - 32 + 8 + 36] =
+# [resident_cx - 60, resident_cx + 12]; resident's spans
+# [resident_cx - 50, resident_cx + 50]. Horizontal overlap is
+# [resident_cx - 50, resident_cx + 12] = 62 px wide. To kill the
+# overlap entirely we would need stagger ≥ 86 px which would push
+# the label off-screen for the leftmost stack, so instead we rely
+# on the 44-px vertical fan-out + tinted outline + opaque background
+# panel (see set_label_stack_index below) to make the labels read
+# as separate names in OCR even with rectangular x-overlap.
+const LABEL_VISITING_HALF_WIDTH: float = 36.0
 const LABEL_DIMMED_ALPHA: float = 0.5
 const LABEL_DEFAULT_OUTLINE_SIZE: int = 4
-const LABEL_VISITING_OUTLINE_SIZE: int = 8
+const LABEL_VISITING_OUTLINE_SIZE: int = 12
 var _label_default_top: float = -130.0
 var _label_default_bottom: float = -110.0
+var _label_default_left: float = -50.0
+var _label_default_right: float = 50.0
 var _label_stack_index: int = 0
 var _label_resident_dimmed: bool = false
 
@@ -69,11 +101,16 @@ func _ready() -> void:
 	home_position = position
 	_label.text = nickname
 	_label.add_theme_color_override("font_color", Color.from_hsv(color_hue, 0.45, 1.0))
-	# Cache the scene's authored label vertical extents so visiting-stack
-	# math is anchored to the .tscn defaults rather than whatever the
-	# label happens to be at when set_label_visiting is first called.
+	# Cache the scene's authored label extents so visiting-stack math
+	# is anchored to the .tscn defaults rather than whatever the label
+	# happens to be at when set_label_stack_index is first called.
+	# S-302 caches the horizontal extents too so the per-occupant
+	# horizontal stagger (LABEL_HORIZONTAL_STAGGER) computes off the
+	# scene authoring, not the post-stagger state.
 	_label_default_top = _label.offset_top
 	_label_default_bottom = _label.offset_bottom
+	_label_default_left = _label.offset_left
+	_label_default_right = _label.offset_right
 	_throw_glyph.visible = false
 	# Knife sprite from atlas. Centered=false; offset to pivot at handle.
 	var atlas := _atlas()
@@ -135,25 +172,101 @@ func teleport_home() -> void:
 	set_label_resident_dimmed(false)
 	_refresh_visual()
 
-# S-269 / S-285 — set the vertical stack slot for this character's
-# NameLabel when N≥2 characters share an anchor. idx=0 keeps the
-# default y; idx=k>=1 lifts the label by LABEL_STACK_OFFSET * k px so
-# multiple visitors can fan out without garbling into each other (e.g.
-# avoiding the t27000.png "counterorandom" 3-actor pile-up). Visitors
-# (idx≥1) also get a thicker font outline so the floating label pops
-# against the iso-stage background per the brief's drop-shadow clause.
+# S-269 / S-285 / S-302 — set the vertical stack slot for this
+# character's NameLabel when N≥2 characters share an anchor. idx=0
+# keeps the default y; idx=k>=1 lifts the label by LABEL_STACK_OFFSET
+# * k px so multiple visitors can fan out without garbling into each
+# other (e.g. avoiding the t27000.png "Meicounter" 2-actor and
+# "counterorandom" 3-actor pile-ups).
+#
+# S-302 — this writer is now IDEMPOTENT: it always re-applies the
+# offsets / outline / colour overrides regardless of whether the
+# tracked index changed. The previous early-return-on-equal optimisation
+# was trading correctness for irrelevant churn — if any other path ever
+# nudged offset_top back to the default (a stale .pck, a re-instantiation,
+# a transition tween), the cached "no change" branch would strand the
+# label at the wrong y forever. The cost is two property writes per
+# character per frame, which is far below the rendering threshold; the
+# upside is that a single missed reconciler tick can no longer cause
+# the live "Meicounter" regression.
+#
+# Visitors (idx≥1) ALSO get:
+#   - a heavier font outline (LABEL_VISITING_OUTLINE_SIZE px) and a
+#     contrasting outline colour tinted from their own player hue, so
+#     even if two labels happen to land near the same screen y the
+#     glyphs read as separate names (different stroke colours);
+#   - a horizontal stagger of LABEL_HORIZONTAL_STAGGER * idx px to
+#     the right of the default centre, so the 32-px PULL_PANTS
+#     landing offset can't make a visitor's label horizontally
+#     concatenate with the resident's. With a 4-px-per-occupant
+#     stagger this also helps a 3-or-4-actor pile-up read as a clear
+#     descending diagonal column.
 func set_label_stack_index(idx: int) -> void:
 	if _label == null:
 		return
-	if _label_stack_index == idx:
-		return
 	_label_stack_index = idx
 	var dy: float = LABEL_STACK_OFFSET * float(idx)
+	var dx: float = LABEL_HORIZONTAL_STAGGER * float(idx)
 	_label.offset_top = _label_default_top - dy
 	_label.offset_bottom = _label_default_bottom - dy
-	# Visitors get a heavier outline; the resident keeps the default.
+	# Visitors (idx ≥ 1) use the narrowed half-width AND the per-
+	# occupant horizontal stagger so co-anchored labels fan out as
+	# a diagonal column instead of stacking centred-on-character.
+	# The resident (idx = 0) keeps the .tscn-authored full width.
+	var hw: float = LABEL_VISITING_HALF_WIDTH if idx >= 1 else (_label_default_right - _label_default_left) * 0.5
+	var cx: float = (_label_default_left + _label_default_right) * 0.5 + dx
+	_label.offset_left = cx - hw
+	_label.offset_right = cx + hw
+	# Visitors get a heavier outline AND a contrasting outline colour
+	# tinted from their own player hue. The resident (idx=0) keeps the
+	# default thin outline / black stroke — it reads as the muted
+	# context behind the foreground visitors.
 	var outline: int = LABEL_VISITING_OUTLINE_SIZE if idx >= 1 else LABEL_DEFAULT_OUTLINE_SIZE
 	_label.add_theme_constant_override("outline_size", outline)
+	if idx >= 1:
+		# Pick a deeply saturated, low-value version of the player's
+		# hue so the outline is visibly different from any neighbour
+		# (whose hue is rotated 1/N around the wheel) AND from the
+		# default black stroke. With value=0.18 the outline reads as
+		# a colour-tinted shadow rather than competing with the inner
+		# white fill.
+		var stroke := Color.from_hsv(color_hue, 0.85, 0.18)
+		_label.add_theme_color_override("font_outline_color", stroke)
+		# S-302 — opaque background panel behind visitor labels. The
+		# panel kills the residual horizontal overlap that the
+		# narrowed-width + stagger leaves behind: even when two
+		# visitor rects share an x-span (e.g. 3 visitors at the same
+		# anchor), the painted background of the higher-index visitor
+		# fully occludes the lower-index visitor's glyphs in the
+		# overlap region, so OCR cannot bleed one name into the next.
+		# The fill colour matches the player's hue at low value with
+		# moderate alpha so the silhouette remains readable through
+		# the panel.
+		var sb := StyleBoxFlat.new()
+		var fill := Color.from_hsv(color_hue, 0.55, 0.22)
+		fill.a = 0.85
+		sb.bg_color = fill
+		sb.border_color = stroke
+		sb.border_width_left = 1
+		sb.border_width_right = 1
+		sb.border_width_top = 1
+		sb.border_width_bottom = 1
+		sb.corner_radius_top_left = 4
+		sb.corner_radius_top_right = 4
+		sb.corner_radius_bottom_left = 4
+		sb.corner_radius_bottom_right = 4
+		sb.content_margin_left = 4
+		sb.content_margin_right = 4
+		sb.content_margin_top = 1
+		sb.content_margin_bottom = 1
+		_label.add_theme_stylebox_override("normal", sb)
+	else:
+		# Resident — restore the .tscn default black outline and
+		# remove any visitor-style background panel that may have
+		# been installed in a prior frame (e.g. the character was a
+		# visitor in a previous round and is now back home).
+		_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+		_label.remove_theme_stylebox_override("normal")
 
 # S-269 — back-compat shim for callers (and the original render_label_
 # collision test) that still speak the binary "is this character a
@@ -162,14 +275,18 @@ func set_label_stack_index(idx: int) -> void:
 func set_label_visiting(is_visiting: bool) -> void:
 	set_label_stack_index(1 if is_visiting else 0)
 
-# S-269 — fade the resident's NameLabel to LABEL_DIMMED_ALPHA while a
-# visitor is camped on this anchor, so the visiting actor's stacked
-# label reads as the foreground name and the resident's reads as the
-# context. Restored on next round-start / teleport_home.
+# S-269 / S-302 — fade the resident's NameLabel to LABEL_DIMMED_ALPHA
+# while a visitor is camped on this anchor, so the visiting actor's
+# stacked label reads as the foreground name and the resident's reads
+# as the context. Restored on next round-start / teleport_home.
+#
+# S-302 — writer is idempotent. Re-applying the same dim state every
+# frame is two property writes; the cost is below the rendering
+# threshold and the upside is that no foreign mutation path can
+# strand the alpha at the wrong value (the same robustness fix as
+# set_label_stack_index above).
 func set_label_resident_dimmed(dimmed: bool) -> void:
 	if _label == null:
-		return
-	if _label_resident_dimmed == dimmed:
 		return
 	_label_resident_dimmed = dimmed
 	var col := _label.modulate

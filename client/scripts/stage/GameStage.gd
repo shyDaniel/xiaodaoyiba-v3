@@ -242,8 +242,16 @@ func _reconcile_label_stacks() -> void:
 	# state with the per-frame reconciliation.
 	_house_occupants = result.get("occupants", {})
 
-	# Apply to characters, only if changed (cache check) — this avoids
-	# pointless tween churn / theme override thrash every frame.
+	# S-302 — always re-apply the desired index to each character every
+	# frame (the writer is now idempotent — re-applying the same index
+	# rewrites offset_top/left + outline overrides without churn). The
+	# previous cache-skip optimisation traded correctness for ~zero
+	# CPU: if any other code path ever moved the label off the
+	# computed slot (e.g. a re-instantiated Character whose _ready ran
+	# AFTER the reconciler had already cached idx=1 for that pid),
+	# the cache said "no change" and the label stayed at the .tscn
+	# default y. The dim flag has the same idempotent property since
+	# it just writes modulate.a, so we apply it unconditionally too.
 	for cpid in desired_idx.keys():
 		var pid: String = String(cpid)
 		if not _characters.has(pid):
@@ -253,12 +261,10 @@ func _reconcile_label_stacks() -> void:
 			continue
 		var want_idx: int = int(desired_idx[pid])
 		var want_dim: bool = bool(desired_dim[pid])
-		var prev_idx: int = int(_label_stack_cache.get(pid, -1))
-		var prev_dim: bool = bool(_label_dim_cache.get(pid, false))
-		if want_idx != prev_idx and ch.has_method("set_label_stack_index"):
+		if ch.has_method("set_label_stack_index"):
 			ch.set_label_stack_index(want_idx)
 			_label_stack_cache[pid] = want_idx
-		if want_dim != prev_dim and ch.has_method("set_label_resident_dimmed"):
+		if ch.has_method("set_label_resident_dimmed"):
 			ch.set_label_resident_dimmed(want_dim)
 			_label_dim_cache[pid] = want_dim
 
