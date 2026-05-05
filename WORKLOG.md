@@ -2,6 +2,65 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 41 — S-226 — Main.gd phase router casing fix (Lobby → Game advanced live)
+
+**Bug.** Iter-40 unblocked the live A/S/L keybinds, so the headless
+chromium drive at http://localhost:5173/ could land 6 `room:addBot` +
+2 `room:start` WS frames and the server reached `phase=PLAYING` —
+but the **client never swapped scenes**. Both 8s and 13s post-Start
+screenshots showed the unchanged Lobby panel ("Room YVDB", 6 rows,
+Add Bot/Start/Leave buttons), and §C1 iso 45° lattice / §C2 zoom /
+§C5 particles / §C7 shame / §C9 reveal / §C10 winner picker —
+everything on `Game.tscn` — was structurally unreachable. A first-
+time user pressed Start and the screen froze on the lobby.
+
+Root cause: `client/scripts/ui/Main.gd:41` compared `p == "playing"`
+(lowercase) against the server's emit `"PLAYING"` (uppercase, see
+`server/src/rooms/Room.ts:56` + `shared/src/game/types.ts`). The
+router silently never matched. The local cache `_phase` was also
+overwritten with the uppercase value on first non-empty snapshot, so
+even retry guard wouldn't help.
+
+**Fix.** Single-line semantic change in `Main.gd::_on_snapshot`:
+`var p := String(snap.get("phase", "")).to_lower()` and add the
+`"ended"` arm so endgame snapshots reuse the lobby panel for rematch
+staging. Wire protocol untouched — uppercase remains the source of
+truth per FINAL_GOAL §A4 / §F2.
+
+**Test.** New `client/tests/smoke_main_router.gd` instantiates
+`Main.tscn`, drives `GameState.snapshot_changed.emit({phase:
+"PLAYING"|"LOBBY"|"playing"|"ENDED"})`, and asserts that the active
+scene under `_slot` resolves to `res://scenes/{Game,Lobby}.tscn` for
+each transition. PASSes locally on Godot 4.3 stable.
+
+**Verify (live).** Re-ran the iter-40 flow against the rebuilt HTML5
+bundle (`bash scripts/build.sh --client-only`, server :3000, html5
+:5173). New `/tmp/judge-after-start.mjs` extends the iter-40 driver
+with 8s + 13s post-Start screenshots. Result:
+
+  - `addBot=6, start=2, sawPLAYING=true`
+  - `/tmp/judge-game-after-{8,13}s.png` BOTH show the Game.tscn
+    surface: §C1 green iso 45° lattice + 6 character sprites under
+    pitched-roof houses with player nicknames ("Lei23", "counter#2",
+    "mirror", "iron", "random", "counter"), BattleLog right-rail,
+    ROCK/PAPER/SCISSORS HandPicker bottom, blue mountain backdrop.
+    Saved a copy at `screenshots/live-game-after-start.png` for the
+    record.
+
+This is the first iteration where the live HTML5 build actually
+reaches the core gameplay surface end-to-end from a cold page load.
+The §C2 ZOOM_IN/OUT, animation-timing trace, BattleLog row clipping,
+and 4-pill landing items remain on the outstanding list for future
+subtasks; this fix unblocks them all (none could even be visually
+graded before because the Game scene wasn't reachable).
+
+**Regression check.** `pnpm test` 90/90 green (79 shared + 11 server,
+unchanged), `smoke_lobby` PASS, `smoke_lobby_keybinds` PASS,
+`smoke_landing_hero` PASS, new `smoke_main_router` PASS. The
+`godot --headless --import client/` exit-134 abort is pre-existing
+on `main` HEAD prior to this change (verified via stashed diff) —
+WSL2 sandbox issue tracked separately.
+
 ## Iteration 40 — S-218 — Live lobby keybinds via JS bridge (canvas-focus bypass)
 
 **Bug.** S-205 wired A/S/L keybinds in `Lobby.gd::_unhandled_key_input`
