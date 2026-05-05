@@ -2,6 +2,63 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 12 — S-148 — §D1/§D2 audio: 8 SFX + 3 BGM WAVs from offline ZzFX
+
+**Bug:** `client/assets/audio/sfx/` and `client/assets/audio/bgm/` were
+empty; `Audio.gd._try_load_sfx`/`_try_load_bgm` returned null and
+`play_sfx()` silently no-op'd. The full gameplay loop
+(REVEAL → ACTION → IMPACT → VICTORY) shipped silent — failed the
+FINAL_GOAL §D1/§D2 viral aesthetic gate ("every action must have a SFX").
+
+**Fix:** Added `scripts/codegen-audio.mjs` — an offline Node port of
+the v2 ZzFX 1.3.2 micro-renderer (from
+`xiaodaoyiba-v2/packages/client/src/audio/zzfx.ts`) that synthesizes
+44.1 kHz / 16-bit / mono PCM WAVs at build time. The 19-parameter ZzFX
+voice model is preserved verbatim; the only delta vs. v2 is that
+`Math.random()` is replaced by a `mulberry32` PRNG seeded by the
+preset name so build output is byte-deterministic (no CI churn).
+
+Generated assets per FINAL_GOAL §D1/§D2:
+
+- `client/assets/audio/sfx/{tap,reveal,pull,chop,dodge,thud,victory,defeat}.wav`
+  (8 slots, 130-1040 ms each; multi-voice presets `pull`, `victory`,
+  `defeat` mix layered ZzFX calls at the original v2 setTimeout offsets).
+- `client/assets/audio/bgm/{lobby,battle,victory}.wav` (3 variants,
+  ~10-13 s each — 4 bars × 16 steps of the v2 pentatonic-on-C tracks
+  so cross-fades stay musically continuous).
+
+The script also writes Godot `.import` sidecars per file with
+`edit/loop_mode=2` (Forward) for BGM and `edit/loop_mode=1` (Disabled)
+for SFX — Godot 4.3 ResourceImporterWAV enum per PR #59170. Without
+this, generated WAVs (no `smpl` chunk) default to "Detect → Disabled"
+and BGM ends after one play; runtime can't override.
+
+Wiring: `pnpm codegen:audio` task added; `scripts/build.sh` runs it
+before `godot --import`; `.github/workflows/ci.yml` runs it before the
+Godot import step and adds a new `tests/audio_smoke.gd` headless gate
+that asserts every named SFX slot and BGM variant resolves to a
+non-null `AudioStreamWAV` and that BGM loop_mode == LOOP_FORWARD.
+
+**Local verification:**
+- `pnpm test` → 90/90 green (79 shared + 11 server) in ~0.9 s.
+- `node scripts/codegen-audio.mjs` → 8 SFX + 3 BGM written
+  (3.2 MB total — well under §E3 6 MB cap).
+- `godot --headless --path client --import` → exit 0, all 11 WAVs
+  imported to `res://.godot/imported/<name>-*.sample`.
+- `godot --headless --path client --script tests/audio_smoke.gd
+  --quit` → all 11 streams load, BGM loop_mode=1 (LOOP_FORWARD)
+  → "audio_smoke: PASS (8 sfx + 3 bgm)".
+- Signal levels sanity-checked: `chop.wav` RMS 0.106 peak 0.29,
+  `lobby.wav` RMS 0.017 peak 0.10 — well above noise floor, with
+  headroom for Audio.gd's -6 dB nominal bus.
+
+**Acceptance gate (subtask brief):**
+- `ls client/assets/audio/sfx/*.wav | wc -l` → **8** ✓
+- `ls client/assets/audio/bgm/*.{ogg,wav} | wc -l` → **3** ✓
+- `godot --headless --path client --import` → 0 errors ✓
+- 4 distinct SFX (tap/reveal/pull/chop) + 3 BGM cross-fade variants
+  load via `Audio.gd`'s exact `ResourceLoader.exists` path ✓.
+
 ## Iteration 11 — S-139 — §E5 full CI workflow
 
 **Bug:** `.github/workflows/` contained only the narrow `codegen-drift.yml`

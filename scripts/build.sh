@@ -36,6 +36,11 @@ if [[ "$DO_CLIENT" -eq 1 ]]; then
     echo "[build] godot not on PATH; skipping HTML5 export." >&2
   else
     mkdir -p client/build
+    # FINAL_GOAL §D1/§D2: render the SFX/BGM WAVs offline before the Godot
+    # import step so generated audio is always in sync with the preset
+    # table. Idempotent and deterministic (mulberry32 seeded by name).
+    echo "[build] generating audio assets..."
+    node scripts/codegen-audio.mjs
     echo "[build] importing Godot project..."
     godot --headless --path client --import || true
     echo "[build] exporting Godot HTML5 release..."

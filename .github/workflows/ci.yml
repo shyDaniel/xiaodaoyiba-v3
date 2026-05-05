@@ -76,5 +76,15 @@ jobs:
             /usr/local/bin/godot
           godot --headless --version
 
+      # Generate the 8 SFX + 3 BGM WAVs from the offline ZzFX renderer so
+      # the Godot import step has audio assets to discover. The script is
+      # deterministic (mulberry32 seeded by preset name) so checked-in
+      # outputs match CI outputs byte-for-byte.
+      - name: codegen audio (8 SFX + 3 BGM)
+        run: node scripts/codegen-audio.mjs
+
       - name: godot --headless --path client --import
         run: godot --headless --path client --import
+
+      - name: godot audio smoke (load + loop_mode assertions)
+        run: godot --headless --path client --script tests/audio_smoke.gd --quit

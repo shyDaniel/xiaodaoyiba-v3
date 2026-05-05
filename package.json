@@ -18,7 +18,8 @@
     "sim": "pnpm --filter @xdyb/server sim",
     "serve": "bash scripts/serve-html5.sh",
     "godot:import": "godot --headless --path client --import",
-    "codegen:timing": "pnpm --filter @xdyb/shared run codegen:timing"
+    "codegen:timing": "pnpm --filter @xdyb/shared run codegen:timing",
+    "codegen:audio": "node scripts/codegen-audio.mjs"
   },
   "devDependencies": {
     "typescript": "^5.7.2"
