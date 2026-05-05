@@ -28,7 +28,7 @@ layout_mode = 2
 
 [node name="Title" type="Label" parent="V"]
 layout_mode = 2
-text = "Battle Log"
+text = "战报"
 theme_override_font_sizes/font_size = 16
 theme_override_colors/font_color = Color(0.94, 0.96, 0.99, 1)
 

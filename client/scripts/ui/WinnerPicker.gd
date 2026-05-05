@@ -7,9 +7,11 @@
 #     pair so server falls back to the engine's auto-pick. Server-side
 #     budget is 9s (WINNER_CHOICE_BUDGET_MS); we cap UI hold at 5s so
 #     there's a 4s safety margin for in-flight roundtrips.
-#   - Three actions: Pull pants (PULL_PANTS), CHOP, Pants up
-#     (PULL_OWN_PANTS_UP). Visible labels are Latin (S-192) so the live
-#     HTML5 build is legible without a CJK system font.
+#   - Three actions: 扒裤衩 (PULL_PANTS), 咔嚓 (CHOP), 穿好裤衩
+#     (PULL_OWN_PANTS_UP). S-345: visible labels are CJK now that the
+#     bundled NotoSansSC font (S-332) ships with the HTML5 build, so
+#     winners read the rhyme in its native script at the most critical
+#     interactive moment.
 
 extends Control
 
@@ -57,7 +59,7 @@ func open(prompt: Dictionary) -> void:
 	_allow_self = bool(prompt.get("canSelfRestore", false))
 	_selected_target = null
 	_selected_action = ""
-	_title.text = "You won! Pick a target."
+	_title.text = "你赢了！选个倒霉蛋"
 	# Refresh target list.
 	for c in _target_list.get_children():
 		c.queue_free()
@@ -71,12 +73,12 @@ func open(prompt: Dictionary) -> void:
 		var pid: String = str(t.get("id", "")) if is_dict else str(t)
 		var stage_str: String = str(t.get("stage", "")) if is_dict else ""
 		# Annotate stage so the human can read at-a-glance whether the
-		# target is clothed (Pull pants) or already pants-down (CHOP).
+		# target is clothed (扒裤衩) or already pants-down (咔嚓).
 		var label: String = nick
 		if stage_str == "ALIVE_PANTS_DOWN":
-			label = "%s  (pants down)" % nick
+			label = "%s  (光屁股)" % nick
 		elif stage_str == "ALIVE_CLOTHED":
-			label = "%s  (clothed)" % nick
+			label = "%s  (穿着)" % nick
 		btn.text = label
 		btn.custom_minimum_size = Vector2(220, 48)
 		btn.add_theme_font_size_override("font_size", 16)
@@ -104,7 +106,7 @@ func _process(delta: float) -> void:
 	if not _open:
 		return
 	_hold_timer -= delta
-	_countdown.text = "%.1fs - auto-pick if idle" % max(_hold_timer, 0.0)
+	_countdown.text = "%.1f 秒后自动出手" % max(_hold_timer, 0.0)
 	if _hold_timer <= 0.0:
 		_open = false
 		winner_choice_made.emit(null, null)
@@ -122,7 +124,7 @@ func _pick_target(pid: String) -> void:
 		else:
 			b.modulate = Color(1.0, 1.0, 1.0, 0.6)
 	var nick: String = _target_nicks.get(pid, pid)
-	_title.text = "Target: %s - now pick an action" % nick
+	_title.text = "目标：%s — 选招式" % nick
 
 func _pick_action(action: String) -> void:
 	_selected_action = action
@@ -138,7 +140,7 @@ func _pick_action(action: String) -> void:
 	# the agency moment is preserved. The 5-second timeout still falls
 	# back to the engine auto-pick if they never click anything.
 	if _selected_target == null:
-		_title.text = "Pick a target first"
+		_title.text = "先选个倒霉蛋"
 		_title.modulate = Color(1.0, 0.5, 0.5, 1.0)
 		var tw := create_tween()
 		tw.tween_property(_title, "modulate", Color(1, 0.94, 0.62, 1), 0.6)

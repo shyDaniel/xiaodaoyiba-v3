@@ -1966,3 +1966,68 @@ client was just discarding it and rebuilding English from
 - The four mod points (BattleLog row text, phase banner, verb chip
   glyph, HandPicker caption) are all the user-visible English
   surfaces called out in iter-71's judge brief; every one is now CN.
+
+## Iteration 73 — S-345: WinnerPicker localized to Chinese (+ BattleLog header)
+
+**Why this matters:** iter-71/72 (S-332/S-338) localized PhaseBanner,
+BattleLog narration rows, verb badges, HandPicker, and the lobby
+couplet — but the single most identity-critical interactive surface
+(the agency-picker dialog that surfaces when a HUMAN wins a round)
+was still 100% English: 'You won! Pick a target.' / 'Pull pants' /
+'CHOP' / 'Pants up' / '(clothed)' / '(pants down)' / '5.0s -
+auto-pick if idle'. For a product whose entire identity is the
+nursery rhyme '小刀一把，来到你家，扒你裤衩，直接咔嚓!' the moment a
+first-time Chinese user wins R1 and the dialog drops into English
+breaks the rhyme, breaks the brand, and is the textbook
+viral-aesthetic-gate failure. FINAL_GOAL §C10 explicitly demands
+'扒裤衩' / '咔嚓' / '穿好裤衩'.
+
+**Mod points:**
+- `client/scripts/ui/WinnerPicker.gd` — `_title.text` open-prompt
+  changed to '你赢了！选个倒霉蛋'; target-chip stage suffixes
+  '  (光屁股)' / '  (穿着)'; per-target follow-up title
+  '目标：%s — 选招式'; soft-validation message '先选个倒霉蛋';
+  countdown '%.1f 秒后自动出手'. Header docstring updated to
+  reflect S-345 (visible labels are CJK now that NotoSansSC is
+  bundled by S-332).
+- `client/scenes/ui/WinnerPicker.tscn` — Title text →
+  '你赢了！选个倒霉蛋'; Targets/Header text → '目标'; Pull button
+  → '扒裤衩' (font_size 18→22 so the 3-glyph label is readable);
+  Chop button → '咔嚓' (font_size 18→22); Self button → '穿好裤衩'
+  (font_size 18→22); Countdown initial text → '5.0 秒后自动出手'.
+- `client/scenes/ui/BattleLog.tscn` — header text 'Battle Log' →
+  '战报' (the right-rail panel title that sits above every log row).
+- `client/tests/render_winner_picker.gd` — NEW Godot scene-tree test
+  that instantiates WinnerPicker.tscn with a synthetic 2-target +
+  self-restore prompt, lets the fade-in tween settle, then asserts
+  that every visible Label/Button text contains its expected CJK
+  substring AND does NOT contain any of the pre-S-345 English
+  strings ('Pick a target', 'Pull pants', 'CHOP', 'auto-pick',
+  '(clothed)', '(pants down)'). PNG dump is gated on a
+  non-null viewport texture so the test runs in both --headless
+  (dummy renderer, text-only) and editor (rasterized PNG) modes.
+
+**Verification:**
+- `pnpm test` → 90/90 green (shared 79 + server 11).
+- `pnpm sim --players 4 --bots counter,random,iron,mirror
+  --winner-strategy random-target+random-action --rounds 50
+  --seed 42` → tie_rate=0.260 (<0.30), max winner 2/5=40% (<60%),
+  PULL_OWN_PANTS_UP fires R48 ('玩家不慌不忙，把裤衩穿了回去').
+- `godot --headless --path client/ --script
+  tests/render_winner_picker.gd` → PASS, every CN substring asserted,
+  every legacy EN string negative-asserted.
+- `bash scripts/build.sh --client-only` → fresh HTML5 bundle written
+  to `client/build/`; .pck mtime > all modified .gd / .tscn sources.
+- `SHOTS=/tmp/judge_picker_cn node scripts/validate-game-progression.mjs`
+  → PASS (multi-round S-243 + S-277 spectator visual progression),
+  screenshots opened and visually inspected:
+    - t=1000 R1.PREP — battlelog header reads '战报' ✓; PhaseBanner
+      '第 1 回合 · 亮拳' ✓; HandPicker captions 石头/布/剪刀 ✓.
+    - t=3000 R1.IMPACT — battlelog narration '事 扒 Ming40一个箭步
+      上前，扒下了counter的裤衩' (CN) with the yellow-tinted '扒'
+      verb badge ✓.
+    - t=5000 R2.PREP — '第 2 回合 · 准备' banner ✓; persistent shame
+      visible (red-briefs frame on counter, R1→R2 carry) ✓.
+  WinnerPicker doesn't surface in the spectator-driven path because
+  the human is in spectator mode; the new render_winner_picker.gd
+  test covers the picker localization assertion directly.
