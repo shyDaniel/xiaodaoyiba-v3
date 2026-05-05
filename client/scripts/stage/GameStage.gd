@@ -109,7 +109,9 @@ func _ensure_house(pid: String, pos: Vector2, player: Dictionary, i: int, n: int
 	if _houses.has(pid):
 		return
 	var house := preload("res://scenes/stage/House.tscn").instantiate()
-	house.position = pos + Vector2(0, -32)  # raise to match iso-floor anchor
+	# House anchor at its base; House.tscn positions the Body sprite up
+	# from this anchor so y_sort_enabled depth-sorts naturally.
+	house.position = pos
 	if house.has_method("set_player_color"):
 		house.set_player_color(_player_color(i, n))
 	if house.has_method("set_label"):
@@ -124,7 +126,11 @@ func _ensure_character(pid: String, house_pos: Vector2, player: Dictionary, i: i
 	char_scene.player_id = pid
 	char_scene.nickname = String(player.get("nickname", "?"))
 	char_scene.color_hue = float(i) / float(max(n, 1))
-	char_scene.position = house_pos + Vector2(0, 8)
+	# Stand the character in front of (below) the house's iso anchor so
+	# the silhouette reads against the ground tile, not the wall. The
+	# Houses + Characters layers are y_sort_enabled siblings so the
+	# higher-y character draws above the house naturally.
+	char_scene.position = house_pos + Vector2(0, 64)
 	char_scene.is_self = (pid == GameState.my_player_id)
 	characters_layer.add_child(char_scene)
 	_characters[pid] = char_scene

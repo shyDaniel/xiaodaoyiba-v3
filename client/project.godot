@@ -25,6 +25,7 @@ Timing="*res://scripts/generated/Timing.gd"
 Net="*res://scripts/globals/Net.gd"
 GameState="*res://scripts/globals/GameState.gd"
 Audio="*res://scripts/globals/Audio.gd"
+SpriteAtlas="*res://scripts/globals/SpriteAtlas.gd"
 
 [display]
 

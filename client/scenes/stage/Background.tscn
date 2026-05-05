@@ -6,21 +6,39 @@
 
 [node name="SkyRect" type="ColorRect" parent="Sky"]
 offset_left = -2000.0
-offset_top = -1500.0
+offset_top = -200.0
 offset_right = 2000.0
-offset_bottom = -200.0
-color = Color(0.36, 0.55, 0.78, 1)
+offset_bottom = 800.0
+color = Color(0.50, 0.68, 0.82, 1)
 
-[node name="Mountains" type="ParallaxLayer" parent="."]
-motion_scale = Vector2(0.3, 0.1)
-
-[node name="MountainPoly" type="Polygon2D" parent="Mountains"]
-color = Color(0.27, 0.35, 0.44, 1)
-polygon = PackedVector2Array(-2000, -200, -1500, -480, -1100, -300, -700, -520, -300, -260, 100, -540, 500, -300, 900, -560, 1300, -260, 1700, -520, 2000, -200)
+[node name="SkyHorizon" type="ColorRect" parent="Sky"]
+offset_left = -2000.0
+offset_top = 280.0
+offset_right = 2000.0
+offset_bottom = 420.0
+color = Color(0.95, 0.78, 0.55, 0.45)
 
 [node name="MountainsBack" type="ParallaxLayer" parent="."]
 motion_scale = Vector2(0.15, 0.05)
 
 [node name="MountainPoly2" type="Polygon2D" parent="MountainsBack"]
 color = Color(0.42, 0.52, 0.62, 1)
-polygon = PackedVector2Array(-2000, -200, -1700, -360, -1300, -240, -900, -420, -500, -240, -100, -440, 300, -240, 700, -440, 1100, -240, 1500, -360, 2000, -200)
+polygon = PackedVector2Array(-2000, 320, -1700, 180, -1300, 240, -900, 120, -500, 230, -100, 100, 300, 230, 700, 110, 1100, 230, 1500, 170, 2000, 320)
+
+[node name="Mountains" type="ParallaxLayer" parent="."]
+motion_scale = Vector2(0.3, 0.1)
+
+[node name="MountainPoly" type="Polygon2D" parent="Mountains"]
+color = Color(0.27, 0.35, 0.44, 1)
+polygon = PackedVector2Array(-2000, 360, -1500, 200, -1100, 290, -700, 160, -300, 280, 100, 140, 500, 280, 900, 150, 1300, 290, 1700, 180, 2000, 360)
+
+[node name="MountainSnow" type="Polygon2D" parent="Mountains"]
+color = Color(0.92, 0.94, 1.0, 1)
+polygon = PackedVector2Array(-1530, 220, -1500, 200, -1470, 220, -720, 178, -700, 160, -680, 178, 80, 158, 100, 140, 120, 158, 880, 168, 900, 150, 920, 168, 1680, 198, 1700, 180, 1720, 198)
+
+[node name="Hills" type="ParallaxLayer" parent="."]
+motion_scale = Vector2(0.5, 0.2)
+
+[node name="HillPoly" type="Polygon2D" parent="Hills"]
+color = Color(0.22, 0.40, 0.28, 1)
+polygon = PackedVector2Array(-2000, 380, -1600, 320, -1200, 350, -800, 310, -400, 350, 0, 305, 400, 340, 800, 310, 1200, 345, 1600, 315, 2000, 380)

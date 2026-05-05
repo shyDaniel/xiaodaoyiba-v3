@@ -66,6 +66,13 @@ func _init() -> void:
 				(c as Character).show_throw(glyph)
 				break
 
+	# Put p1 (小明) into ATTACKING state so the knife sprite is visible
+	# in the captured frame — §C11 acceptance demands a visible knife.
+	for c in characters.get_children():
+		if c is Character and (c as Character).player_id == "p1":
+			(c as Character).set_state(Character.State.ATTACKING)
+			break
+
 	# Set the phase banner to make the rendered phase obvious.
 	var phase_label: Label = stage.get_node_or_null("UILayer/PhaseBanner")
 	if phase_label != null:

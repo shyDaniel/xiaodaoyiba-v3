@@ -48,8 +48,8 @@ script = ExtResource("3_ep")
 [node name="UILayer" type="CanvasLayer" parent="."]
 
 [node name="BattleLog" parent="UILayer" instance=ExtResource("6_log")]
-offset_left = 980.0
-offset_top = 20.0
+offset_left = 1050.0
+offset_top = 70.0
 
 [node name="HandPicker" parent="UILayer" instance=ExtResource("7_hp")]
 offset_left = 30.0

@@ -5,40 +5,23 @@
 [node name="House" type="Node2D"]
 script = ExtResource("1_house")
 
-[node name="Walls" type="Polygon2D" parent="."]
-color = Color(0.88, 0.78, 0.62, 1)
-polygon = PackedVector2Array(-72, 0, 72, 0, 72, 84, -72, 84)
+[node name="Body" type="Sprite2D" parent="."]
+centered = true
+position = Vector2(0, -38)
 
-[node name="Roof" type="Polygon2D" parent="."]
-color = Color(0.78, 0.36, 0.23, 1)
-polygon = PackedVector2Array(-88, 0, 88, 0, 0, -64)
-
-[node name="Door" type="Polygon2D" parent="."]
-color = Color(0.32, 0.18, 0.08, 1)
-polygon = PackedVector2Array(-18, 36, 18, 36, 18, 84, -18, 84)
-
-[node name="WindowL" type="Polygon2D" parent="."]
-color = Color(0.55, 0.78, 0.92, 1)
-polygon = PackedVector2Array(-58, 18, -32, 18, -32, 38, -58, 38)
-
-[node name="WindowR" type="Polygon2D" parent="."]
-color = Color(0.55, 0.78, 0.92, 1)
-polygon = PackedVector2Array(32, 18, 58, 18, 58, 38, 32, 38)
-
-[node name="DamageMarks" type="Node2D" parent="."]
-visible = false
-
-[node name="Mark1" type="Polygon2D" parent="DamageMarks"]
-color = Color(0.12, 0.08, 0.06, 1)
-polygon = PackedVector2Array(-12, 30, 14, 28, 8, 70, -16, 64)
+[node name="RoofTint" type="Sprite2D" parent="Body"]
+centered = true
+position = Vector2(0, 0)
+modulate = Color(1, 1, 1, 1)
 
 [node name="NameLabel" type="Label" parent="."]
-offset_left = -80.0
-offset_top = -100.0
-offset_right = 80.0
-offset_bottom = -76.0
+offset_left = -90.0
+offset_top = -134.0
+offset_right = 90.0
+offset_bottom = -110.0
 horizontal_alignment = 1
 text = "?"
+theme_override_font_sizes/font_size = 16
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4

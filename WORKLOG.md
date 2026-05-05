@@ -2,6 +2,80 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 9 — S-119 — VIRAL AESTHETIC GATE (§C11): procedural sprite atlas + knife
+
+**Bug:** Iteration 8 fixed the throw glyphs but every character was still
+a 4-rect Polygon2D stack (legs/torso/head/optional briefs) and every house
+was 5 polygons (walls/roof/door/2 windows). The product is literally named
+"小刀一把冲到你家" yet there was **no knife sprite anywhere**. §C11 says
+"would you screenshot this and send to a friend" — first render: no.
+
+**Strategy:** procedurally generate a pixel-art bitmap atlas at boot via
+offscreen `Image.create()` rather than dropping PNGs (FINAL_GOAL §G says
+the project must self-bootstrap with no binary asset uploads beyond
+fonts).
+
+**Added** `client/scripts/globals/SpriteAtlas.gd` (~600 lines, autoload).
+Renders into `ImageTexture`s at startup:
+- `character_textures` — 96×128 sprites for each of 5 states
+  (`ALIVE_CLOTHED`, `ALIVE_PANTS_DOWN`, `RUSHING`, `ATTACKING`, `DEAD`)
+  with shaded body parts, hair cap, per-state face features (eyes, mouth,
+  X-eyes for DEAD), shoes, ground shadow ellipse, single-pixel outline.
+- `house_textures` — 192×160 sprites across 4 damage stages with peaked
+  shaded roof, chimney, framed windows with cross-bars, door + knob,
+  jagged crack lines and a destroyed door at stage 3.
+- `knife_texture` — 56×20 with handle, guard, tapered blade with bevel
+  highlight.
+- Throw FX dot sprites (R / P / S accent particles).
+
+**Rewired** `Character.tscn` to a single `Body: Sprite2D` + `Knife:
+Sprite2D` child (offset pivots blade rotation around the handle).
+`Character.gd._refresh_visual()` now reads the texture from the atlas by
+state-name string and modulates with a per-player hue tint
+(`Color.from_hsv(color_hue, 0.45, 1.0)` lerped at 45% so skin/hair stay
+readable). `_swing_knife()` runs a 3-stage tween: cocked back (-1.6 rad)
+→ chop forward (1.0 rad) → rest (-0.4 rad).
+
+**Rewired** `House.tscn` to `Body: Sprite2D` + `RoofTint` overlay.
+`House.gd.show_damage()` now advances `_stage` (0..3) and swaps the
+underlying texture, so the door visibly chops up across rounds.
+
+**Layout fixes:**
+- `GameStage.gd`: character now placed at `house_pos + Vector2(0, 64)`
+  (was `+8`) so it stands in front of, not inside, the house. House
+  position no longer offset by `Vector2(0, -32)`; the sprite's own
+  internal offset (Body at `Vector2(0, -38)`) handles ground anchoring.
+- `Background.tscn`: replaced the harsh "sun-glow" yellow rectangle
+  with a subtle warm-horizon band (`Color(0.95, 0.78, 0.55, 0.45)` at
+  y=280..420) and brightened the sky to `Color(0.50, 0.68, 0.82)`.
+  Mountain polygons repositioned so the silhouettes sit at/above the
+  iso horizon.
+- `BattleLog.tscn` / `Game.tscn`: rail narrowed `280×460 → 220×360` and
+  shifted from `(980, 20)` to `(1050, 70)` so it no longer covers
+  小明's house in 1280×720 builds.
+
+**GDScript-4.3 traps hit:**
+- `var foo := max(...)` infers `Variant` and refuses to compile under
+  strict mode. Replaced with typed `mini` / `maxi` / `absi` / `clampi`
+  / `maxf` everywhere in `SpriteAtlas.gd`.
+- Bare autoload identifier `SpriteAtlas.x` doesn't always resolve at
+  parse time depending on load order. Added `_atlas() -> Node` helper
+  in both `Character.gd` and `House.gd` returning
+  `get_node_or_null("/root/SpriteAtlas")`.
+- `set_player_color()` is called from `GameStage._spawn_player()`
+  **before** the House has run `_ready()`, so `@onready var _body`
+  was still null and assigning to `.texture` crashed. Added an early
+  null-guard in `_apply_textures()`; `_ready()` re-invokes it once
+  onready vars resolve.
+
+**Test:** `tests/render_game.gd` now also drives p1 (小明) into the
+`ATTACKING` state before screenshotting so the captured frame proves
+the knife sprite is rendered. PASS — `/tmp/xdyb_action.png` shows 4
+characters with discernible faces, knife in 小明's hand, red briefs on
+机器人甲 (persistent shame), all 3 ✊✋✌ glyphs above heads + on
+HandPicker buttons, mountains on the horizon, no flat ≥48px monochrome
+rectangles. `pnpm test` still 90/90 (79 shared + 11 server).
+
 ## Iteration 8 — S-109 — render ✊✋✌ via NotoColorEmoji CBDT/CBLC font (§C9)
 
 **Bug:** §C9 says "REVEAL phase shows every alive player's throw glyph

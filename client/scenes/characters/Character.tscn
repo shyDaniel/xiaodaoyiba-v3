@@ -6,41 +6,39 @@
 [node name="Character" type="Node2D"]
 script = ExtResource("1_char")
 
-[node name="Body" type="Node2D" parent="."]
+[node name="Body" type="Sprite2D" parent="."]
+centered = true
+position = Vector2(0, -54)
 
-[node name="Legs" type="Polygon2D" parent="Body"]
-color = Color(0.31, 0.21, 0.13, 1)
-polygon = PackedVector2Array(-14, 0, 14, 0, 14, 28, -14, 28)
+[node name="TorsoTint" type="Sprite2D" parent="Body"]
+centered = true
+position = Vector2(0, 0)
+modulate = Color(1, 1, 1, 1)
 
-[node name="Torso" type="Polygon2D" parent="Body"]
-color = Color(0.4, 0.55, 0.85, 1)
-polygon = PackedVector2Array(-18, -32, 18, -32, 16, 0, -16, 0)
-
-[node name="Head" type="Polygon2D" parent="Body"]
-color = Color(0.95, 0.84, 0.7, 1)
-polygon = PackedVector2Array(-12, -54, 12, -54, 12, -32, -12, -32)
-
-[node name="ShameBriefs" type="Polygon2D" parent="Body"]
+[node name="Knife" type="Sprite2D" parent="."]
 visible = false
-color = Color(0.85, 0.18, 0.22, 1)
-polygon = PackedVector2Array(-15, 14, 15, 14, 15, 26, -15, 26)
+centered = false
+offset = Vector2(0, -10)
+position = Vector2(18, -78)
+rotation = -0.4
 
 [node name="NameLabel" type="Label" parent="."]
-offset_left = -40.0
-offset_top = -82.0
-offset_right = 40.0
-offset_bottom = -62.0
+offset_left = -50.0
+offset_top = -130.0
+offset_right = 50.0
+offset_bottom = -110.0
 horizontal_alignment = 1
 text = "?"
+theme_override_font_sizes/font_size = 14
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 
 [node name="ThrowGlyph" type="Label" parent="."]
 offset_left = -56.0
-offset_top = -160.0
+offset_top = -210.0
 offset_right = 56.0
-offset_bottom = -96.0
+offset_bottom = -146.0
 horizontal_alignment = 1
 vertical_alignment = 1
 text = "?"
