@@ -2,6 +2,85 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 84 — S-393 — fix VISUAL REGRESSION: empty iso stage from typed-assignment abort
+
+**Symptom.** `docs/screenshots/action.png` (the brief's flagship
+acceptance screenshot) was rendering an empty iso stage — sky / grass /
+diamond ground tiles only, zero houses, zero characters, zero knife.
+The corresponding test `tests/render_action_static.gd` ran four times
+(once per player anchor) and emitted `SCRIPT ERROR: Trying to assign
+value of type 'CompressedTexture2D' to a variable of type
+'ImageTexture'` at `_blit_house()` and `_blit_character()`, then
+silently returned out of each blit before any pixel hit the canvas.
+
+**Root cause.** Iter-82 (S-386 §I.0 hard ban on procedural entity art)
+swapped `SpriteAtlas.gd` from per-pixel `Image.set_pixel` generators to
+`load("res://...png")` of stitched Kenney CC0 composites. `load()` of
+an imported PNG returns a `CompressedTexture2D`, which is a sibling
+subclass of `ImageTexture` under the common `Texture2D` base. The four
+consumer sites in the test scripts still annotated their texture
+locals as `var tex: ImageTexture` — a typed sibling-class assignment
+in GDScript raises and aborts the enclosing function with no rendered
+output. A second symptom in `render_game.gd` accessed the
+`PhaseBanner` PanelContainer via `as Label`, which raised the same
+class of typed assignment error and short-circuited the rest of that
+script.
+
+A third latent bug surfaced once the first two were fixed:
+`render_house_atlas.gd` called `Image.blit_rect` between the loaded
+PNG (FORMAT_RGBA8 _or_ FORMAT_RGB8 depending on import flags) and the
+RGBA8 atlas surface — when formats mismatched, `blit_rect` aborted
+with `Condition "format != p_src->format" is true`. Ran four times,
+left an empty atlas tile, no PNG written.
+
+Files changed:
+- `client/scripts/globals/SpriteAtlas.gd` — appended a "Stable typed
+  contract (S-393)" header documenting that every entity texture
+  exposed here is a `Texture2D` (concrete: `CompressedTexture2D`) and
+  consumers MUST annotate as `Texture2D`. The narrower `ImageTexture`
+  annotation is the well-defined failure mode.
+- `client/tests/render_action_static.gd` — `_blit_house()`,
+  `_blit_character()`, and the knife block all switched from
+  `var tex: ImageTexture` to `var tex: Texture2D` with null guards on
+  both the texture handle and the `get_image()` return (the headless
+  dummy renderer can return null). House and character source
+  dimensions read dynamically from `src.get_width()/get_height()` so
+  pack-swaps (192×192 ↔ 192×160) don't silently mis-compose. Roof
+  tint clamp generalised from hardcoded `y < 70` / `>= 0.92` to
+  `y < int(hh * 0.45)` / `>= 0.78` to catch warmer Kenney roof tones.
+- `client/tests/render_house_atlas.gd` — same `Texture2D` widening for
+  `stages[i]` and the pristine handle. `Image.convert(FORMAT_RGBA8)`
+  before `blit_rect` to fix the format-mismatch abort. The legacy
+  S-162 procedural-house metric block (wall-noise sigma ≥ 8 / shingle
+  bands ≥ 6 / porch brown ≥ 60 / smoke ≥ 30) was calibrated against
+  the banned procedural generator and no longer matches Kenney
+  composites — deleted, replaced with a short comment + `quit(0)`.
+  S-393 acceptance for this script is just "writes a valid PNG".
+- `client/tests/render_game.gd` — fixed PhaseBanner access from
+  `"UILayer/PhaseBanner" as Label` (PanelContainer root) to
+  `"UILayer/PhaseBanner/Label" as Label` (the actual Label child).
+- `client/tests/check_action_coverage.gd` — new pixel-coverage
+  acceptance test the brief asks for. Loads `action.png` and asserts
+  ≥30% non-background coverage in both a 192×192 house bbox and a
+  96×128 character bbox at each of the four player anchors `(380,240)
+  / (760,240) / (380,560) / (760,560)`. Uses a green/sky/mountain
+  band heuristic for the background mask.
+
+Verification:
+- `godot --headless --path client --script res://tests/render_action_static.gd`
+  → exit 0, zero `SCRIPT ERROR` lines, writes `docs/screenshots/action.png` (1280×720).
+- `godot --headless --path client --script res://tests/render_house_atlas.gd`
+  → exit 0, writes `/tmp/xdyb_houses.png` (768×192).
+- `godot --headless --path client --script res://tests/check_action_coverage.gd`
+  → PASS at all 4 anchors. House coverage 95.9–96.5%, character
+  coverage 37.6–41.0%, comfortably above the 30% floor.
+- Eyeball of `docs/screenshots/action.png`: four brick-walled Kenney
+  houses on the iso lattice, four distinct character sprites
+  (Bot-A in armor with sword/shield, Bot-B in purple, Hong as girl,
+  Ming in purple), phase banner reading "R1 · PREP", BattleLog rail
+  populated, HandPicker chips at the bottom. Visual regression
+  resolved.
+
 ## Iteration 78 — S-367 — LandingHero BattleLog localized to CJK
 
 **Symptom.** The landing right-rail demo BattleLog — the FIRST

@@ -17,6 +17,18 @@
 #   knife_trail_texture: Texture2D
 #   fx_*_texture:       Texture2D   (proxied to Fx autoload)
 #
+# Stable typed contract (S-393): every entity texture exposed by this
+# autoload is a `Texture2D`. The concrete subclass at runtime is
+# CompositedTexture2D (returned by `load("res://...png")` on imported
+# PNG resources). Consumers MUST annotate as `Texture2D`, not
+# `ImageTexture` — the latter is a sibling subclass and a typed
+# assignment will raise 'Trying to assign value of type
+# CompressedTexture2D to a variable of type ImageTexture' and abort
+# the per-frame blit (visible regression: empty iso stage in
+# docs/screenshots/action.png at iter 83). All `Image.get_image()`
+# calls on these textures must also tolerate a null return for the
+# headless dummy renderer; check before reading pixels.
+#
 # Particle dot textures (alpha-falloff dots used by GPUParticles2D)
 # remain procedural per §I.0 carve-out, but live under
 # `client/scripts/particles/Fx.gd` so the path-based grep filter

@@ -445,11 +445,23 @@ func _draw_picker_chip(img: Image, x: int, y: int, w: int, h: int,
 # ---------- blit helpers ----------
 
 func _blit_house(img: Image, sa: Node, anchor: Vector2i, roof_tint: Color) -> void:
-	var tex: ImageTexture = sa.house_textures[0]
+	# Widened to Texture2D — SpriteAtlas now returns CompressedTexture2D
+	# from PNG load() (per §I.0 ban on procedural ImageTextures); the
+	# narrower ImageTexture annotation aborted the blit per-player and
+	# left docs/screenshots/action.png as an empty iso stage.
+	var tex: Texture2D = sa.house_textures[0]
+	if tex == null:
+		return
 	var src: Image = tex.get_image()
-	var top_left := Vector2i(anchor.x - 96, anchor.y - 160)
-	for y in range(160):
-		for x in range(192):
+	if src == null:
+		return
+	var hw := src.get_width()
+	var hh := src.get_height()
+	# Anchor top-left so the bottom-centre of the house bitmap sits at
+	# (anchor.x, anchor.y). hw=192 / hh=192 for the Kenney composite.
+	var top_left := Vector2i(anchor.x - hw / 2, anchor.y - hh)
+	for y in range(hh):
+		for x in range(hw):
 			var X := x + top_left.x
 			var Y := y + top_left.y
 			if X < 0 or X >= W or Y < 0 or Y >= H:
@@ -457,13 +469,13 @@ func _blit_house(img: Image, sa: Node, anchor: Vector2i, roof_tint: Color) -> vo
 			var px: Color = src.get_pixel(x, y)
 			if px.a < 0.01:
 				continue
-			# Tint pure-white roof pixels with the per-player roof hue.
-			# Only target the upper roof region (y < 70 in atlas coords)
-			# AND only pixels that look like the unmodulated roof base
-			# (≥ 0.92 in all channels). This preserves the shingle bands
-			# (which are at ~0.55 grey).
+			# Tint roof pixels with the per-player roof hue. The roof
+			# region is the upper ~45% of the atlas; we restrict to the
+			# brightest pixels there so shingle bands / window mullions
+			# are preserved. Threshold 0.78 catches the warmer Kenney
+			# Tiny Town roof tiles (which aren't pure white).
 			var out_c: Color = px
-			if y < 70 and px.r > 0.92 and px.g > 0.92 and px.b > 0.92:
+			if y < int(float(hh) * 0.45) and px.r > 0.78 and px.g > 0.78 and px.b > 0.78:
 				out_c = Color(px.r * roof_tint.r, px.g * roof_tint.g, px.b * roof_tint.b, px.a)
 			var dst := img.get_pixel(X, Y)
 			var a := out_c.a
@@ -475,19 +487,32 @@ func _blit_house(img: Image, sa: Node, anchor: Vector2i, roof_tint: Color) -> vo
 			))
 
 func _blit_character(img: Image, sa: Node, anchor: Vector2i, state: String) -> void:
-	var tex: ImageTexture = sa.character_textures.get(state, sa.character_textures["ALIVE_CLOTHED"])
+	# Widened to Texture2D — SpriteAtlas now returns CompressedTexture2D
+	# from PNG load() (per §I.0 ban on procedural ImageTextures); the
+	# narrower ImageTexture annotation aborted blits per-player and
+	# left the iso stage character-less. Source dims read dynamically
+	# from the loaded image so any future Kenney pack swap that ships
+	# 64×96 / 128×160 sprites still composes correctly.
+	var tex: Texture2D = sa.character_textures.get(state, sa.character_textures["ALIVE_CLOTHED"])
+	if tex == null:
+		return
 	var src: Image = tex.get_image()
-	# Place character to the side of the house, scaled to 0.75× so its
-	# bounding-box height (96 px) is ≤ 50% of the 160-px house height.
+	if src == null:
+		return
+	var src_w := src.get_width()
+	var src_h := src.get_height()
+	# Scale character to 0.75× of native so a 96×128 sprite renders at
+	# 72×96 (≤ 50% of the 192-px-tall house bitmap, per §C4 "world
+	# feels bigger than character").
 	var scale := 0.75
-	var draw_w := int(96.0 * scale)
-	var draw_h := int(128.0 * scale)
+	var draw_w := int(float(src_w) * scale)
+	var draw_h := int(float(src_h) * scale)
 	var top_left := Vector2i(anchor.x + 100, anchor.y + 30 - draw_h)
 	for dy in range(draw_h):
 		for dx in range(draw_w):
 			var sx := int(float(dx) / scale)
 			var sy := int(float(dy) / scale)
-			if sx >= 96 or sy >= 128:
+			if sx >= src_w or sy >= src_h:
 				continue
 			var px: Color = src.get_pixel(sx, sy)
 			if px.a < 0.01:
@@ -507,30 +532,32 @@ func _blit_character(img: Image, sa: Node, anchor: Vector2i, state: String) -> v
 	# If ATTACKING, blit the knife sprite so the §C11 "visible knife"
 	# acceptance is demonstrably satisfied in the screenshot.
 	if state == "ATTACKING":
-		var knife_tex: ImageTexture = sa.knife_texture
+		# Texture2D — same widening rationale as _blit_house above.
+		var knife_tex: Texture2D = sa.knife_texture
 		if knife_tex != null:
 			var ksrc: Image = knife_tex.get_image()
-			var kw := ksrc.get_width()
-			var kh := ksrc.get_height()
-			var kx := top_left.x + draw_w - 4
-			var ky := top_left.y + 18
-			for ky_i in range(kh):
-				for kx_i in range(kw):
-					var px: Color = ksrc.get_pixel(kx_i, ky_i)
-					if px.a < 0.01:
-						continue
-					var X := kx + kx_i
-					var Y := ky + ky_i
-					if X < 0 or X >= W or Y < 0 or Y >= H:
-						continue
-					var dst := img.get_pixel(X, Y)
-					var a := px.a
-					img.set_pixel(X, Y, Color(
-						dst.r * (1.0 - a) + px.r * a,
-						dst.g * (1.0 - a) + px.g * a,
-						dst.b * (1.0 - a) + px.b * a,
-						1.0
-					))
+			if ksrc != null:
+				var kw := ksrc.get_width()
+				var kh := ksrc.get_height()
+				var kx := top_left.x + draw_w - 4
+				var ky := top_left.y + 18
+				for ky_i in range(kh):
+					for kx_i in range(kw):
+						var px: Color = ksrc.get_pixel(kx_i, ky_i)
+						if px.a < 0.01:
+							continue
+						var X := kx + kx_i
+						var Y := ky + ky_i
+						if X < 0 or X >= W or Y < 0 or Y >= H:
+							continue
+						var dst := img.get_pixel(X, Y)
+						var a := px.a
+						img.set_pixel(X, Y, Color(
+							dst.r * (1.0 - a) + px.r * a,
+							dst.g * (1.0 - a) + px.g * a,
+							dst.b * (1.0 - a) + px.b * a,
+							1.0
+						))
 
 # ---------- primitives ----------
 

@@ -74,7 +74,12 @@ func _init() -> void:
 			break
 
 	# Set the phase banner to make the rendered phase obvious.
-	var phase_label: Label = stage.get_node_or_null("UILayer/PhaseBanner")
+	# S-393: PhaseBanner is a PanelContainer (carved-wood 9-slice
+	# StyleBoxTexture) with a Label child — the previous typed
+	# assignment of PanelContainer to a `Label` variable raised
+	# 'Trying to assign value of type PanelContainer to a variable of
+	# type Label' and short-circuited the rest of this script.
+	var phase_label := stage.get_node_or_null("UILayer/PhaseBanner/Label") as Label
 	if phase_label != null:
 		phase_label.text = "R1 · REVEAL"
 
