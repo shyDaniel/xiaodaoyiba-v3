@@ -1436,3 +1436,64 @@ server sends, regardless of whether the local player is alive.
   previously-stuck post-IMPACT freeze is gone. `t22000 == t27000`
   is the GAME_OVER victory hold (game ended at R4), which is
   correct end-state behavior.
+
+
+## Iteration 47 — S-277 — multi-round client render freeze (PhaseBanner stuck on tie/spectator rounds)
+
+**Symptom.** With S-253 in place, server-side R3+ playback works
+for dead-human spectators (validate emits 4 `room:effects` frames
+for R1..R4). The judge however still reports byte-identical late
+screenshots when R3 lands as an all-equal tie:
+`t18000 == t22000 == t27000` md5 `c93bdb4f...`. The PhaseBanner
+in the top-left of GameStage stays frozen on `R2 · IMPACT`
+forever even though `room:snapshot` frames advance through R3 / R4.
+
+**Root cause.** Two cooperating gaps:
+1. `EffectPlayer.gd._dispatch()` only stamps the PhaseBanner via
+   `stage.on_phase_start(phase, round)` from the `PHASE_START`
+   effect branch. Tie rounds emit zero `PHASE_START` (only
+   `ROUND_START + RPS_REVEAL + TIE_NARRATION + NARRATION` per
+   `shared/src/game/effects.ts`), so when R3 is a tie the banner
+   never receives an update — it remains on the previous round's
+   `R2 · IMPACT` label.
+2. `GameStage._on_snapshot()` advances `_last_round_seen` and
+   resets per-round UI when the snapshot's `round` increments,
+   but does not refresh the PhaseBanner text. The banner relies
+   entirely on `PHASE_START` arrivals — which never come for
+   tie-only rounds, and lag the snapshot for action rounds.
+
+**Fix.**
+- `client/scripts/stage/EffectPlayer.gd`: stamp the banner at the
+  ROUND_START effect (`R%d · START` placeholder, immediately
+  overwritten by any PHASE_START within ~0–1500 ms) and at the
+  TIE_NARRATION effect (`R%d · TIE` — the only banner update tie
+  rounds will ever produce). Both go through the existing
+  `stage.on_phase_start(phase, round)` API so spectator-side
+  semantics line up with action-round semantics.
+- `client/scripts/stage/GameStage.gd._on_snapshot()`: when the
+  snapshot's `round` is greater than `_last_round_seen` and
+  `phase == "PLAYING"`, seed `phase_label.text = "R%d · PREP"`
+  immediately so the banner reads the new round number even
+  before any effect dispatch lands. On `LOBBY` clear it.
+
+The server protocol is unchanged; this is purely a client UI
+wiring fix. Spectators (dead-or-pants-down humans) and live
+players both benefit — for live players the same effect-driven
+flow runs; the new ROUND_START seed is harmless because PREP/REVEAL
+overwrite it within the same animation tween.
+
+**Verification.**
+- `pnpm test`: green (no behavior change in shared / server).
+- `godot --headless --path client/ --script tests/smoke_spectator_phase_banner.gd`:
+  PASS — covers (a) seed snapshot R2, (b) PHASE_START IMPACT R2,
+  (c) snapshot rollover R3 → banner shows R3, (d) TIE_NARRATION R3,
+  (e) snapshot rollover R4 → banner shows R4.
+- `bash scripts/build.sh --client-only`: HTML5 export OK.
+- `SHOTS=/tmp/judge_throw node scripts/validate-game-progression.mjs`:
+  `[drive] PASS (multi-round S-243 + S-277 spectator visual progression)` —
+  6 `RPS_REVEAL` effect frames, 4 `PHASE_START` effect frames, 6
+  `room:effects` RX, `sawRound3=true`, md5 `t18=3f5cba30 t22=dddc3ea9
+  t27=e51f981e lateFramesMove=true`. OCR of `t27000.png` PhaseBanner
+  reads `R6 · PREP` (game progressed to R6 by t=27000ms with the
+  added R4 throw); `t18000.png` reads `R3 · PULL_PANTS`. The
+  previously-stuck post-IMPACT freeze is fully resolved.

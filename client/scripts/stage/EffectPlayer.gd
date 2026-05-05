@@ -87,8 +87,18 @@ func _dispatch(e: Dictionary) -> void:
 			_cur_actor = ""
 			_cur_target = ""
 			_cur_kind = ""
-			stage.battle_log.add_row(int(e.get("round", 0)), "round",
-				"Round %d - fight!" % int(e.get("round", 0)), "")
+			var rs_round := int(e.get("round", 0))
+			stage.battle_log.add_row(rs_round, "round",
+				"Round %d - fight!" % rs_round, "")
+			# S-277 — kick the PhaseBanner over to the new round IMMEDIATELY
+			# even before any PHASE_START arrives. Tie-only rounds emit
+			# zero PHASE_START effects, so without this seed the banner
+			# stays frozen on the previous round's IMPACT label and the
+			# spectator (dead-or-pants-down human) sees nothing change.
+			# We set a "START" placeholder; subsequent PHASE_START effects
+			# overwrite it within ~0–1500ms.
+			if stage.has_method("on_phase_start"):
+				stage.on_phase_start("START", rs_round)
 			Audio.play_sfx("tap")
 		"RPS_REVEAL":
 			var throws: Array = e.get("throws", [])
@@ -102,9 +112,17 @@ func _dispatch(e: Dictionary) -> void:
 		"TIE_NARRATION":
 			# Server text is CN; render a Latin tie line in the live build
 			# so the log stays legible without a CJK system font (S-192).
-			stage.battle_log.add_row(int(e.get("round", 0)), "tie",
+			var tie_round := int(e.get("round", 0))
+			stage.battle_log.add_row(tie_round, "tie",
 				"Standoff - nobody moved", "TIE")
 			stage.show_tie_banner("TIE")
+			# S-277 — tie rounds emit zero PHASE_START effects, so the
+			# only effect that touches phase semantics in the round is
+			# this one. Stamp the PhaseBanner so a spectator sees the
+			# round number advance (e.g. "R3 · TIE") instead of the
+			# stale "R2 · IMPACT".
+			if stage.has_method("on_phase_start"):
+				stage.on_phase_start("TIE", tie_round)
 		"PHASE_START":
 			var phase := String(e.get("phase", ""))
 			stage.on_phase_start(phase, int(e.get("round", 0)))

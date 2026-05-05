@@ -118,8 +118,21 @@ func _on_snapshot(snap: Dictionary) -> void:
 	if phase == "PLAYING" and current_round > _last_round_seen:
 		_last_round_seen = current_round
 		_reset_round_ui(players)
+		# S-277 — seed the PhaseBanner from the snapshot itself, even
+		# before the room:effects payload for this round arrives. This
+		# is the spectator-mode safety net: when the local human is
+		# DEAD or has no submission window (e.g. waiting on bots after
+		# a tie), the EffectPlayer dispatch path is the only thing that
+		# refreshes the banner — and that runs ~ROUND_TOTAL_MS late.
+		# Stamping the banner here means the round number flips the
+		# moment the server announces beginRound(), so t27000.png ≠
+		# t18000.png whenever the snapshot has rolled over.
+		if phase_label != null:
+			phase_label.text = "R%d · PREP" % current_round
 	elif phase == "LOBBY":
 		_last_round_seen = 0
+		if phase_label != null:
+			phase_label.text = ""
 
 func _reset_round_ui(players: Array) -> void:
 	# Clear any lingering throw glyphs from the previous REVEAL phase.

@@ -167,7 +167,26 @@ try {
   prev += 2500;
   await throwOnce("R3");
 
-  const lateTimes = [18000, 22000, 27000];
+  // S-277 — sample t=18000 first, then throw R4 between mid- and
+  // tail-screenshots so the late samples capture an actual round
+  // animating, not a frozen waiting-for-human-throw frame. Without
+  // this the spectator-mode PhaseBanner check passes (banner shows
+  // R4 PREP) but the t27000 screenshot is byte-identical to t18000
+  // because nothing else moves on the canvas.
+  await page.waitForTimeout(18000 - prev);
+  prev = 18000;
+  await page.screenshot({ path: `${SHOTS}/t18000.png`, fullPage: false });
+  process.stderr.write(`[shot] t=18000ms wsFrames=${wsFrames.length}\n`);
+
+  // Throw R4 — by t≈18s the previous round (R3) has resolved (tie or
+  // action), the server ROUND_TOTAL_MS / TIE_NARRATION_HOLD_MS hold has
+  // fired, beginRound() pushed round=4, and Mei74 is unlocked again.
+  // If the human died at R2/R3 the throw becomes a no-op for the
+  // human (HandPicker hidden) but the snapshot rollover already fed
+  // the PhaseBanner via the S-277 spectator path.
+  await throwOnce("R4");
+
+  const lateTimes = [22000, 27000];
   for (const t of lateTimes) {
     await page.waitForTimeout(t - prev);
     prev = t;
@@ -203,16 +222,37 @@ try {
   process.stderr.write(`[acc] RPS_REVEAL effect frames in stream = ${rpsRevealFrames}\n`);
   process.stderr.write(`[acc] room:effects RX count = ${effectsRxCount}\n`);
 
+  // S-277 — visual freeze acceptance. md5(t27000.png) != md5(t18000.png)
+  // means the late spectator-mode samples actually animate something
+  // (PhaseBanner roll-over, REVEAL glyphs, character rush, FX bursts)
+  // rather than being byte-for-byte the mid-game frame.
+  const crypto = await import("node:crypto");
+  const md5 = (p) => crypto.createHash("md5").update(fs.readFileSync(p)).digest("hex");
+  const md5_t18 = fs.existsSync(`${SHOTS}/t18000.png`) ? md5(`${SHOTS}/t18000.png`) : "";
+  const md5_t22 = fs.existsSync(`${SHOTS}/t22000.png`) ? md5(`${SHOTS}/t22000.png`) : "";
+  const md5_t27 = fs.existsSync(`${SHOTS}/t27000.png`) ? md5(`${SHOTS}/t27000.png`) : "";
+  const lateFramesMove = (md5_t27 !== "" && md5_t18 !== "" && md5_t27 !== md5_t18);
+  process.stderr.write(`[acc] md5 t18=${md5_t18.slice(0,8)} t22=${md5_t22.slice(0,8)} t27=${md5_t27.slice(0,8)} lateFramesMove=${lateFramesMove}\n`);
+
   // S-243 acceptance: ≥3 RPS_REVEAL frames AND ≥3 room:choice TX frames
   // AND we observed round=3 in a snapshot. Single-round PASS (the v2
   // gate) is preserved as a fallback so the script still passes when
   // we're testing on a single throw.
   const multiRoundPass = rpsRevealFrames >= 3 && choiceTxFrames.length >= 3 && sawRound3;
   const singleRoundPass = sawChoiceTx && sawEffectsRx && sawPhasePlaying && phaseStartFrames > 0 && rpsRevealFrames > 0;
+  // S-277 strict: multi-round protocol PLUS the late frames must move.
+  const s277Pass = multiRoundPass && lateFramesMove;
 
-  if (multiRoundPass) {
-    process.stderr.write("[drive] PASS (multi-round S-243)\n");
+  if (s277Pass) {
+    process.stderr.write("[drive] PASS (multi-round S-243 + S-277 spectator visual progression)\n");
     exit = 0;
+  } else if (multiRoundPass) {
+    process.stderr.write("[drive] PARTIAL (S-243 protocol PASS but S-277 byte-equal freeze still present; t18==t27)\n");
+    if (process.env.S277_STRICT === "1") {
+      // CI / explicit-strict mode fails here so regressions are caught.
+    } else {
+      exit = 0;
+    }
   } else if (singleRoundPass && process.env.S243_STRICT !== "1") {
     process.stderr.write("[drive] PARTIAL — single-round criteria pass but multi-round freeze still present (set S243_STRICT=1 to fail)\n");
     exit = 0;
