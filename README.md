@@ -5,7 +5,7 @@ Casual web multiplayer RPS-elimination game based on the Chinese nursery rhyme
 **Godot 4** client (HTML5 export) wired to the v2 TypeScript multiplayer
 server.
 
-![xiaodaoyiba v3 — REVEAL phase, 4 players, iso 45° stage, knife in 小明's hand, persistent shame on 机器人甲, ✊✋✌ throw glyphs above each character](./docs/screenshots/action.png)
+![xiaodaoyiba v3 — R1 REVEAL phase static mock: 4 players (Bot-A, Bot-B, Hong, Ming) on an iso 45° stage with shingle-roofed houses, knife sprite in Bot-A's hand, persistent red briefs on Hong (ALIVE_PANTS_DOWN), BattleLog rail with timestamped rows on the right, ✊✋✌ HandPicker chips along the bottom](./docs/screenshots/action.png)
 
 See [`FINAL_GOAL.md`](./FINAL_GOAL.md) for the full design brief and
 [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the scene-tree / protocol /

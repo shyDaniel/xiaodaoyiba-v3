@@ -31,11 +31,18 @@ const H := 720
 # pastels; the exact hue is not critical, just visually distinguishable.
 # ATTACKING placed top-left so the knife sprite is clearly visible (no
 # BattleLog rail overlap).
+## Nicknames are deliberately Latin-only in the static mock so the
+## embedded 5×7 ASCII bitmap font can render them legibly. The runtime
+## Godot client renders the original CJK names (机器人甲 / 小明 / 小红 /
+## 机器人乙) via the system Noto Sans CJK fallback — the README copy
+## explicitly anglicises them to Ming / Hong / Bot-A / Bot-B for the
+## hero screenshot's honesty (matches the BattleLog rows below which
+## already use "Ming preps" / "Hong's pants").
 const PLAYERS := [
-	{"id": "p1", "pos": Vector2i(0, 0), "stage": "ATTACKING",        "roof": Color(1.00, 0.78, 0.78, 1.0)},  # top-left  (with knife)
-	{"id": "p4", "pos": Vector2i(1, 0), "stage": "ALIVE_CLOTHED",    "roof": Color(0.82, 0.84, 1.00, 1.0)},  # top-right
-	{"id": "p3", "pos": Vector2i(0, 1), "stage": "ALIVE_PANTS_DOWN", "roof": Color(0.82, 1.00, 0.82, 1.0)},  # bot-left  (briefs visible)
-	{"id": "p2", "pos": Vector2i(1, 1), "stage": "ALIVE_CLOTHED",    "roof": Color(1.00, 0.95, 0.78, 1.0)},  # bot-right
+	{"id": "p1", "name": "Bot-A", "pos": Vector2i(0, 0), "stage": "ATTACKING",        "roof": Color(1.00, 0.78, 0.78, 1.0), "name_color": Color(1.00, 0.55, 0.55, 1.0)},  # top-left  (with knife)
+	{"id": "p4", "name": "Bot-B", "pos": Vector2i(1, 0), "stage": "ALIVE_CLOTHED",    "roof": Color(0.82, 0.84, 1.00, 1.0), "name_color": Color(0.65, 0.75, 1.00, 1.0)},  # top-right
+	{"id": "p3", "name": "Hong",  "pos": Vector2i(0, 1), "stage": "ALIVE_PANTS_DOWN", "roof": Color(0.82, 1.00, 0.82, 1.0), "name_color": Color(0.55, 1.00, 0.65, 1.0)},  # bot-left  (briefs visible)
+	{"id": "p2", "name": "Ming",  "pos": Vector2i(1, 1), "stage": "ALIVE_CLOTHED",    "roof": Color(1.00, 0.95, 0.78, 1.0), "name_color": Color(1.00, 0.85, 0.40, 1.0)},  # bot-right
 ]
 
 # Color emoji font — committed asset. The .ttf bitmap atlas is loaded
@@ -187,6 +194,14 @@ func _init() -> void:
 		var anchor: Vector2i = anchors[i]
 		_blit_house(img, sa, anchor, pl["roof"] as Color)
 		_blit_character(img, sa, anchor, pl["stage"] as String)
+		# §C8: per-player nickname pill — dark semi-transparent
+		# StyleBoxFlat-style rounded rect anchored above each roof,
+		# rendered with the embedded 5×7 bitmap font in the player's
+		# stable name color. Latin-only (Ming/Hong/Bot-A/Bot-B) so the
+		# ASCII font can render the glyphs (the runtime Godot client
+		# uses Noto Sans CJK for the original 机器人甲/小明/小红/机器人乙).
+		_blit_nickname_pill(img, anchor, pl["name"] as String,
+			pl["name_color"] as Color)
 
 	# Phase banner top-left — solid pill with phase indicator dot and
 	# real bitmap-font text reading "R1 REVEAL".
@@ -375,6 +390,36 @@ func _blit_log_row(img: Image, x: int, y: int, tag: String, verb: String,
 	_draw_text(img, verb, x + 96, y + 8, 2, Color(0.10, 0.08, 0.06, 1.0))
 	# Body — the actual log line, white on dark.
 	_draw_text(img, msg, x + 134, y + 8, 1, Color(0.95, 0.95, 0.95, 1.0))
+
+## §C8 nickname pill — drawn above each house roof with a dark
+## semi-transparent fill (Color(0,0,0,0.65) → contrast vs. white text
+## ≈ 18:1, well above the 4.5:1 floor) and the player's stable name
+## color tinting the bitmap glyphs. The pill width auto-sizes to the
+## measured text. Anchor matches house top-left; we offset upward so
+## the pill sits just above the roof peak (y = anchor.y - 160 - 36).
+func _blit_nickname_pill(img: Image, anchor: Vector2i, name: String,
+		name_color: Color) -> void:
+	var scale := 3
+	var text_w := _measure_text(name, scale)
+	var text_h := GLYPH_H * scale            # 21 px tall for scale=3
+	var pad_x := 10
+	var pad_y := 6
+	var pill_w := text_w + pad_x * 2
+	var pill_h := text_h + pad_y * 2         # 33 px tall — well above the 12px floor
+	var pill_x := anchor.x - pill_w / 2
+	var pill_y := anchor.y - 160 - pill_h - 6  # 6 px gap above roof peak
+	# Outer dark pill (high-contrast background).
+	_fill_rounded_rect(img, pill_x, pill_y, pill_w, pill_h,
+		Color(0.06, 0.07, 0.10, 0.85))
+	# 1-px colored stroke matches the player's roof / name color so
+	# pill ↔ house association is unambiguous.
+	_blit_box_outline(img, pill_x, pill_y, pill_w, pill_h,
+		Color(name_color.r, name_color.g, name_color.b, 0.95))
+	# Glyphs — pure white for max contrast against the dark pill.
+	# (Per-player color is carried by the stroke instead, so the body
+	# text always clears the 4.5:1 contrast threshold.)
+	_draw_text(img, name, pill_x + pad_x, pill_y + pad_y, scale,
+		Color(1.0, 1.0, 1.0, 1.0))
 
 func _draw_picker_chip(img: Image, x: int, y: int, w: int, h: int,
 		emoji_cp: int, label: String) -> void:

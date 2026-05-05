@@ -2,6 +2,56 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 16 — S-176 — §C8 nickname pills land in the README hero (no more silent CJK fallback)
+
+**Bug:** iter-15 (S-169) replaced the in-roof Label with a hand-rolled
+5×7 ASCII bitmap font that has no CJK glyphs. The committed
+`docs/screenshots/action.png` showed BattleLog body lines in English
+("Ming preps", "Hong's pants") but **zero nicknames** anywhere on the
+four houses — 机器人甲 / 小明 / 小红 / 机器人乙 hit the missing-glyph
+fallback and dropped silently. The §C8 "per-player stable name colors"
+acceptance went from low-contrast purple-on-cream to absent entirely.
+
+**Fix (option c from the brief — anglicise nicknames in the static
+mock):** added a `name` + `name_color` field per `PLAYERS` entry in
+`client/tests/render_action_static.gd` with Latin-only nicks
+**Bot-A / Bot-B / Hong / Ming** that the embedded ASCII bitmap font
+*can* render. Each house now gets a `_blit_nickname_pill()` call that
+draws a 33-px-tall dark rounded rect (`Color(0.06, 0.07, 0.10, 0.85)`)
+above the roof peak with a 1-px stroke in the player's stable
+name-color and the nickname rendered in white scale-3 bitmap glyphs
+(21 px tall × 5-pixel-wide letters, well above the 12-px legibility
+floor). Pill width auto-sizes to `_measure_text(name, 3) + 20px`
+padding so the layout stays clean for both 4-char ("Bot-A") and
+4-char ("Hong"/"Ming") names. Updated the README hero alt-text to
+match the now-Latin nicks (was: "knife in 小明's hand, persistent
+shame on 机器人甲", now: "Bot-A, Bot-B, Hong, Ming, knife in Bot-A's
+hand, persistent red briefs on Hong"). The runtime Godot client
+continues to use the original CJK names via system Noto Sans CJK
+fallback — only the static mock is anglicised, and the rationale is
+documented in a leading comment block on `PLAYERS`.
+
+**Acceptance test (verbatim from S-176 brief) — passes:**
+- `docs/screenshots/action.png` contains 4 distinct legible nicknames
+  (Bot-A / Bot-B / Hong / Ming), each rendered at scale=3 → 21 px
+  tall (≥ 12 px floor ✓) ✓
+- Contrast ≥ 4.5:1: white-on-(0.06, 0.07, 0.10, 0.85) effective
+  background → ≈ 16.7:1 ✓ (well above floor)
+- `render_action_static.gd` no longer silently drops player names
+  (every entry in `PLAYERS` is rendered through `_blit_nickname_pill`,
+  not the missing-glyph code path) ✓
+- `pnpm test` → **90/90 green** (79 shared + 11 server) ✓
+- Re-rendered `docs/screenshots/action.png` opened with Read shows
+  all 4 nickname pills with colored strokes matching their roof
+  hues ✓
+
+**Visual evidence:** opened the regenerated 1280×720 PNG with the Read
+tool — Bot-A pill (red stroke, top-left over pink-roof house), Bot-B
+pill (blue stroke, top-right over blue-roof house), Hong pill (green
+stroke, mid-left near green-roof house with red briefs on character),
+Ming pill (yellow stroke, mid-right near yellow-roof house). All four
+labels are crisp, dark-pilled, and unambiguous.
+
 ## Iteration 13 — S-155 — §F1 README rewrite: status reflects shipped iterations 1–12
 
 **Bug:** README.md:60-64 still read "Iteration 1 (S-001) scaffolded the
