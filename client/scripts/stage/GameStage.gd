@@ -126,6 +126,20 @@ func _reset_round_ui(players: Array) -> void:
 	for c in _characters.values():
 		if c != null and c.has_method("hide_throw"):
 			(c as Character).hide_throw()
+	# S-269 — clear any visiting-stack / resident-dim label state from
+	# the previous round. Once a new round starts every character is
+	# back in its own house (the engine no longer has PHASE_T_RETURN
+	# but the next REVEAL pegs them to their home anchor implicitly),
+	# so neither the visit-stack offset nor the resident dim should
+	# persist into a fresh round.
+	for c in _characters.values():
+		if c == null:
+			continue
+		var ch := c as Character
+		if ch.has_method("set_label_visiting"):
+			ch.set_label_visiting(false)
+		if ch.has_method("set_label_resident_dimmed"):
+			ch.set_label_resident_dimmed(false)
 	# Hide the winner picker if it was left open.
 	if winner_picker != null and winner_picker.has_method("close"):
 		winner_picker.close()
@@ -241,14 +255,32 @@ func play_action(actor: String, target: String, kind: String) -> void:
 		"PULL_PANTS":
 			Audio.play_sfx("pull")
 			actor_char.rush_to(target_char.position + Vector2(-32, 0), Timing.PHASE_T_RUSH)
+			_apply_visit_label_stack(actor_char, target_char)
 		"CHOP":
 			Audio.play_sfx("chop")
 			actor_char.rush_to(target_char.position + Vector2(-32, 0), Timing.PHASE_T_RUSH)
+			_apply_visit_label_stack(actor_char, target_char)
 		"PULL_OWN_PANTS_UP":
 			# Self-action: no rush, just a dignified flash.
 			actor_char.play_attack_wiggle()
 		_:
 			pass
+
+# S-269 — apply name-label collision handling when the actor visits the
+# target's house anchor. Stack the actor's NameLabel above the
+# resident's so the two don't garble together (e.g. "randoming14"),
+# and fade the resident's NameLabel to 50% alpha so the visiting
+# actor's name reads as the foreground identity. Cleared on round
+# transition (_reset_round_ui) and on teleport_home.
+func _apply_visit_label_stack(actor_char: Character, target_char: Character) -> void:
+	if actor_char == null or target_char == null:
+		return
+	if actor_char == target_char:
+		return
+	if actor_char.has_method("set_label_visiting"):
+		actor_char.set_label_visiting(true)
+	if target_char.has_method("set_label_resident_dimmed"):
+		target_char.set_label_resident_dimmed(true)
 
 # --- particle FX (S-261, FINAL_GOAL §C5) -----------------------------------
 #

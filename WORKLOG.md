@@ -2,6 +2,57 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 46 — S-269 — name-label collision fix (visiting actor stacks above resident, resident dims)
+
+**Symptom.** iter-44/iter-45 judge screenshots t13000.png / t18000.png /
+t22000.png showed garbled labels — "randoming14" and "co…random" —
+whenever a winning attacker (visiting actor) rushed to a target's
+house anchor for PULL_PANTS or CHOP. Both characters' NameLabels
+rendered at the same y over the same iso tile, so the text strings
+overlapped pixel-for-pixel and read as a single gibberish blob.
+FINAL_GOAL §C8 acceptance: when ≥2 characters share an anchor, stack
+labels vertically (≥4px gap) OR fade the resident to 50% alpha.
+
+**Root cause.** `Character.tscn` authors `NameLabel.offset_top=-130 /
+offset_bottom=-110` — a fixed 20px-tall label centered above the
+character. Nothing in `Character.gd` or `GameStage.gd` adjusted this
+when an actor camped on another player's tile after `rush_to`. The
+two labels had identical local-space rects and identical world
+positions, so they overlapped exactly.
+
+**Fix.** Two new public methods on `Character.gd`:
+- `set_label_visiting(is_visiting)` — when true, shifts NameLabel's
+  `offset_top`/`offset_bottom` up by `LABEL_STACK_OFFSET` (28px,
+  chosen as label_height (20) + acceptance gap (4) + 4px breathing
+  margin) so the visiting actor's label sits above the resident's.
+- `set_label_resident_dimmed(dimmed)` — sets NameLabel `modulate.a`
+  to `LABEL_DIMMED_ALPHA` (0.5) so the resident reads as context
+  behind the visitor's foreground name.
+
+`GameStage.play_action()` calls these on the actor/target for the
+two actions that involve a rush onto another player's anchor
+(`PULL_PANTS`, `CHOP`). `PULL_OWN_PANTS_UP` is a self-action with no
+rush, so labels stay default. `Character.teleport_home()` and
+`GameStage._reset_round_ui()` both clear the visiting/dimmed state
+on round transition so labels return to their authored y when the
+actor goes back to its own house at the next REVEAL.
+
+**Verification.**
+- New `client/tests/render_label_collision.gd` instantiates two
+  Character.tscn at the same `Vector2` position, applies the fix,
+  asserts `|resident.label.y - visitor.label.y| ≥ label.size.y + 4`
+  AND `visitor.label.y < resident.label.y` AND `resident.alpha == 0.5`,
+  then round-trips back to defaults. Output:
+  `dy=28.00 min_gap=24.00 — PASS`.
+- `pnpm test`: 90/90 green (3 shared + 7 sim + 4 socket.io e2e + 79
+  vitest), unchanged.
+- `pnpm sim --players 4 --bots counter,random,iron,mirror
+  --winner-strategy random-target+random-action --rounds 50
+  --seed 42`: tie_rate=0.260, no winner>60%, PULL_OWN_PANTS_UP fires.
+- `godot --headless --path client --import`: clean exit.
+- `smoke_particle_fx.gd` still PASSES (the new methods are additive,
+  no signature changes — pre-existing GameStage callsites unaffected).
+
 ## Iteration 45 — S-261 — particle FX wired (Dust / Cloth / WoodChip / Confetti)
 
 **Bug.** Iter-44 judge: `client/scenes/effects/{Dust,Cloth,WoodChip,

@@ -29,6 +29,24 @@ var home_position: Vector2 = Vector2.ZERO
 var _rush_tween: Tween = null
 var _knife_swing_tween: Tween = null
 
+# S-269 — name-label collision handling. When this character is the
+# visiting actor at another player's house anchor, its NameLabel is
+# stacked LABEL_STACK_OFFSET px above its default y so it sits clear
+# of the resident's label. When this character is the resident with
+# a visitor present, its NameLabel fades to LABEL_DIMMED_ALPHA so the
+# two labels are visually disambiguated without overlap-collision
+# garble like "randoming14" or "co…random". See FINAL_GOAL §C8.
+# 28px = label height (20px) + 4px gap + 4px breathing room. The
+# render_label_collision test asserts dy ≥ rect.size.y + 4 = 24, so
+# 28 keeps a comfortable margin while still being a tight enough
+# stack that the actor's name reads as related to the resident's.
+const LABEL_STACK_OFFSET: float = 28.0
+const LABEL_DIMMED_ALPHA: float = 0.5
+var _label_default_top: float = -130.0
+var _label_default_bottom: float = -110.0
+var _label_visiting: bool = false
+var _label_resident_dimmed: bool = false
+
 @onready var _body: Sprite2D = $Body
 @onready var _torso_tint: Sprite2D = $Body/TorsoTint
 @onready var _label: Label = $NameLabel
@@ -42,6 +60,11 @@ func _ready() -> void:
 	home_position = position
 	_label.text = nickname
 	_label.add_theme_color_override("font_color", Color.from_hsv(color_hue, 0.45, 1.0))
+	# Cache the scene's authored label vertical extents so visiting-stack
+	# math is anchored to the .tscn defaults rather than whatever the
+	# label happens to be at when set_label_visiting is first called.
+	_label_default_top = _label.offset_top
+	_label_default_bottom = _label.offset_bottom
 	_throw_glyph.visible = false
 	# Knife sprite from atlas. Centered=false; offset to pivot at handle.
 	var atlas := _atlas()
@@ -96,7 +119,54 @@ func teleport_home() -> void:
 	_body.flip_h = false
 	if state != State.DEAD:
 		state = State.ALIVE_PANTS_DOWN if persistent_pants_down else State.ALIVE_CLOTHED
+	# Returning home clears any visiting-stack offset on the label —
+	# we're back at our own anchor and don't share the tile with a
+	# resident, so the default label position is correct.
+	set_label_visiting(false)
+	set_label_resident_dimmed(false)
 	_refresh_visual()
+
+# S-269 — when this character has rushed to another player's house and
+# is co-located with the resident, stack its NameLabel LABEL_STACK_OFFSET
+# px above its default position so the two labels don't overlap and
+# garble (e.g. "randoming14"). When the visit ends, restore.
+func set_label_visiting(is_visiting: bool) -> void:
+	if _label == null:
+		return
+	if _label_visiting == is_visiting:
+		return
+	_label_visiting = is_visiting
+	if is_visiting:
+		_label.offset_top = _label_default_top - LABEL_STACK_OFFSET
+		_label.offset_bottom = _label_default_bottom - LABEL_STACK_OFFSET
+	else:
+		_label.offset_top = _label_default_top
+		_label.offset_bottom = _label_default_bottom
+
+# S-269 — fade the resident's NameLabel to LABEL_DIMMED_ALPHA while a
+# visitor is camped on this anchor, so the visiting actor's stacked
+# label reads as the foreground name and the resident's reads as the
+# context. Restored on next round-start / teleport_home.
+func set_label_resident_dimmed(dimmed: bool) -> void:
+	if _label == null:
+		return
+	if _label_resident_dimmed == dimmed:
+		return
+	_label_resident_dimmed = dimmed
+	var col := _label.modulate
+	col.a = LABEL_DIMMED_ALPHA if dimmed else 1.0
+	_label.modulate = col
+
+# S-269 — render-test hook. Returns the NameLabel rect in this
+# character's local space (top-left, w, h). The acceptance test
+# asserts that two co-anchored characters' rects differ by ≥ rect.h+4.
+func get_name_label_rect() -> Rect2:
+	if _label == null:
+		return Rect2()
+	return Rect2(
+		Vector2(_label.offset_left, _label.offset_top),
+		Vector2(_label.offset_right - _label.offset_left,
+				_label.offset_bottom - _label.offset_top))
 
 func play_attack_wiggle() -> void:
 	# Quick scale pulse; conveys "winding up to chop".
