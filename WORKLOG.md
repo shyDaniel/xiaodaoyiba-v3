@@ -1169,3 +1169,69 @@ explicitly a mock.
 res://tests/render_action_static.gd` exits 0; produces a 1280×720
 PNG with all UI text legible at the rendered resolution; `pnpm
 test` 90/90 still green.
+
+## S-234 (iter-42): live game unfreezes — xdyb_game_throw JS bridge + R/P/S keybinds
+
+**Problem.** Iter-41 confirmed the iso 45° lattice + 6 character/house
+sprites + HandPicker render after Lobby→Game phase advance, but iter-41's
+acceptance trace did not include a human throw. /tmp/judge_progression
+caught the next blocker live: every screenshot from t=1s through t=20s
+after Start is byte-near-identical (empty BattleLog, '?' glyphs above
+chimneys, no REVEAL/ACTION/RESULT phase events on the wire). Root
+cause: the canvas HandPicker buttons need a real `pressed` signal
+which Playwright's mouse synthesis under chrome-headless-shell +
+swiftshader does not reliably deliver, and the GDScript `_input`
+handler never sees document-level key events. Server's
+`Room.allAliveSubmitted()` therefore stays false on every frame,
+`resolveCurrentRound()` never fires, `room:effects` never broadcasts.
+
+**Fix.** Mirrored the §S-218 Lobby contract for the in-game throw:
+
+1. `client/scripts/ui/HandPicker.gd` now installs an `_input` handler
+   that maps R / P / S to ROCK / PAPER / SCISSORS, and exposes
+   `window.xdyb_game_throw(kind)` via `JavaScriptBridge.create_callback`.
+2. A document-level JS keydown shim (idempotent install in
+   `_install_js_bridge`, removed in `_exit_tree`) routes physical
+   `r`/`p`/`s` keys to the bridge so Playwright's
+   `page.keyboard.press()` works regardless of canvas focus state.
+3. New `client/tests/smoke_handpicker_keybinds.gd` covers
+   key dispatch + JS bridge shape + lock gating + garbage-input
+   rejection (PASS).
+
+**Server already correct.** The shared `resolveRound()` already emits
+the full Effect[] (ROUND_START → RPS_REVEAL → 6× PHASE_START →
+ACTION → SET_STAGE → NARRATION) per round, and `Room.ts`
+broadcasts that array verbatim on `room:effects`. The freeze was
+purely a missing-input problem; once the human throw arrived, the
+client's existing `EffectPlayer` rendered everything correctly.
+
+**Verification.** New `scripts/validate-game-progression.mjs` drives
+real headless chromium against `localhost:5173`: Landing →
+`xdyb_landing_create()` → A×3 → S → `xdyb_game_throw('ROCK')` + `R`
+keypress → samples screenshots at 1/3/5/7/10/15s. Saved to
+`/tmp/judge_throw/`:
+
+- `t1000.png` — WinnerPicker dialog "You won! Pick a target." with
+  "Pull pants" / "CHOP" buttons + "3.7s - auto-pick if idle"
+  countdown (§C10 surface live).
+- `t5000.png` — phase banner "R1 · PREP", every character has a
+  REVEAL glyph (✊/✋/✌) above their head, BattleLog shows
+  "R1.round Round 1 - fight!" and "R1.rps 3 win / 3 lose".
+  Copied to `docs/screenshots/game-reveal-live.png`.
+- `t10000.png` — phase "R1 · IMPACT", BattleLog shows three
+  "R1.narr PULL" rows ("mirror pulled down counter#2's pants",
+  "counter pulled down iron's pants", "Mei22 pulled down random's
+  pants"), losers visible in red-ankle-briefs PANTS_DOWN state at
+  winners' houses (§C7 persistent shame). Copied to
+  `docs/screenshots/game-impact-live.png`.
+
+WS frame trace (`/tmp/judge_throw/wsframes.txt`) shows: 1×
+ROUND_START, 1× RPS_REVEAL, 1× RPS_RESOLVED, 6× PHASE_START, 3×
+ACTION, 3× SET_STAGE, 3× NARRATION over a single round — exactly
+the choreography `engine.ts:resolveRound()` is supposed to emit.
+
+**Run:** `pnpm test` 90/90 green;
+`godot --headless --path client --script res://tests/smoke_handpicker_keybinds.gd`
+PASS; `node scripts/validate-game-progression.mjs` PASS
+(`sawChoiceTx=true sawEffectsRx=true sawPhasePlaying=true
+PHASE_START=6 effects, RPS_REVEAL=1 effect`).
