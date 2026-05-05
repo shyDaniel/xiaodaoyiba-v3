@@ -381,3 +381,164 @@ warranted. Until that pattern emerges, let the worker discover.
 
 `godot` is on PATH at `/home/hanyu/bin/godot` (v4.3 stable). Worker can
 verify via `godot --version`.
+
+---
+
+## §H. Aesthetic pass — Stardew Valley quality bar (2026-05-05 用户反馈)
+
+User played v3 ship and said: 差不多是这个意思，但是 UI 也太丑太差了，我不信
+godot 没有比这更好的，能不能像星露谷物语一样.
+
+The architecture is correct (iso, cinematic camera, stay-at-target,
+persistent shame, picker, REVEAL phase). The **rendering layer** is the
+gap. v3's procedural sprite generator produces flat 4-color chibi rigs;
+Stardew Valley's bar is hand-shaded pixel art with cohesive palette,
+ambient detail, custom UI chrome.
+
+### §H1. Authorized art sources
+
+The worker has THREE valid paths to reach the bar — pick whichever lands
+fastest:
+
+1. **CC0 / public-domain pixel-art packs.** Allowed and recommended:
+   - https://kenney.nl/assets (specifically `top-down-tanks-redux`,
+     `medieval-rts`, `1-bit-pack`, `pixel-platformer`, `tiny-town`)
+   - https://opengameart.org (filter: 2D pixel art, CC0/CC-BY-SA)
+   - https://itch.io/game-assets/free/tag-stardew-valley-style
+   - https://lpc.opengameart.org (Liberated Pixel Cup, CC-BY-SA 3.0)
+   Use `curl` to download, extract to `client/assets/sprites/3rd-party/`,
+   document license + attribution in `client/assets/sprites/3rd-party/
+   LICENSES.md`. CC-BY/CC-BY-SA requires attribution; CC0 doesn't.
+
+2. **Procedural Stardew-quality generation.** If the worker prefers
+   self-contained, upgrade `scripts/gen-sprites.mjs` (or a Godot
+   tool-script equivalent) to produce **properly shaded** sprites:
+   - 32×32 native tiles, 16×32 native characters (Stardew's actual
+     resolution, NOT 96×96 oversized blobs)
+   - Per pixel: base color + highlight (lerp toward white ~25%) +
+     shadow (lerp toward black ~25%) + outline (darker than shadow)
+   - 16-color palette with cohesive temperature (warm, slightly
+     desaturated — DB16 / Sweetie16 / Endesga32 are good references)
+   - Hand-drawn lookalike via dithering and pixel-perfect placement,
+     not antialiasing
+   The reference: `pico-8` demoscene, Eric Barone's original Stardew
+   sprites, Cuphead-quality pixel work.
+
+3. **Hybrid.** Use CC0 packs for environment tiles (grass, paths,
+   houses, props) and procedural for the player avatars (so each
+   player still gets a unique procedural variant). Probably the
+   fastest path.
+
+### §H2. Concrete aesthetic deltas (acceptance criteria)
+
+**§H2.1 Ground tiles.** Replace solid-color iso ground with
+**textured tiles**: grass with tufts, dirt path with stone speckle,
+cobblestone, packed earth. Use Godot `TileSet` with at least 4
+distinct ground variants tinted/composited from a base atlas.
+Eval check: 100% of visible ground in a screenshot has texture
+detail at the pixel level, not flat color blocks.
+
+**§H2.2 House visual depth.** Houses go from "rectangle with roof
+slope" to:
+- Wooden plank wall texture (visible grain, ~3-color shading per plank)
+- Tiled / shingled roof (individual shingle outlines, light/shadow
+  per row)
+- Door with frame, hinges, knob detail (≥ 8×8 visible pixels of
+  hardware)
+- Window with cross-mullion + curtain or interior glow tint
+- Chimney with brick texture + animated smoke
+- A small foundation step / porch
+Eval check: a 256×256 zoom-in on one house reveals ≥ 5 distinct
+textural elements.
+
+**§H2.3 Character art.** Replace flat 4-color chibi:
+- 16×32 native (Stardew exact size), 4× scale = 64×128 viewport
+- Visible eyes (≥ 2 colors per eye for highlight + iris)
+- Mouth with ≥ 3 expression states (idle smile / shocked O / dead X)
+- Hair: distinct silhouette shape (mohawk / bowl / antenna / cap /
+  ponytail / bun), each with 2-tone shading
+- Clothing: shirt + pants with cloth folds (≥ 2 tones per garment)
+- Skin tone: at least 2 shades (highlight on cheek, shadow on jaw)
+- Idle squash-and-stretch animation every 1.5-2.5s
+Eval check: zoom in on one character; you can read facial expression
+and clothing detail from a single still frame.
+
+**§H2.4 UI chrome.** Replace default Godot Control nodes with
+**Stardew-style carved wooden panels**:
+- 9-slice `StyleBoxTexture` with **carved wood frame** PNG (3-pixel
+  border with highlight/shadow rim)
+- Background: parchment/paper texture or dark wood plank
+- Buttons: wood-button look, pressed state visibly indented
+- Custom **bitmap pixel font** for UI text (download from
+  damieng.com/typography/zx-origins/ or similar CC0 pixel fonts;
+  embed as Godot `BitmapFont` resource). Default `LineEdit` /
+  `Label` fonts are forbidden in user-visible UI.
+- Battle log entries: hand-painted ribbon look, NOT a flat colored row
+- Buttons have ≥ 1px hard drop-shadow + ≥ 1px highlight rim
+
+**§H2.5 Ambient detail.** Stardew's world feels alive even when
+nothing is happening:
+- Grass tufts sway every 2-3s (subtle 1-pixel offset)
+- Chimney smoke continuously emits (1 particle every 800ms drifting
+  up + fading)
+- 3-5 dust motes float in the foreground (looped sprite, slow drift)
+- Background birds / clouds drift across sky every 8-12s
+- Player characters have a 2-3 frame idle bob
+
+**§H2.6 Color palette discipline.** Pick one cohesive palette and use
+it for EVERY pixel rendered:
+- Recommended: **Endesga 32** (32 colors, warm, indie-game default)
+  — https://lospec.com/palette-list/endesga-32
+- Or **Sweetie 16** (16 colors, gentler) —
+  https://lospec.com/palette-list/sweetie-16
+- Or **DB32** (DawnBringer 32, classic)
+- Hardcode the palette as a Godot resource (`palette.tres`); all
+  programmatic sprite generation samples FROM the palette only — no
+  arbitrary hex codes.
+
+**§H2.7 Audio polish.** Stardew has tactile UI sounds:
+- Hover button: soft wood-tap (tiny ZzFX tone)
+- Click button: deeper wood-knock + paper-rustle blend
+- Page transition: scroll-rustle
+- Currently the SFX bus has tap/reveal/pull/chop only — extend to
+  include hover, click, transition.
+
+### §H3. Definition of done (additive)
+
+Add to the existing ship gate:
+
+- Eval takes a screenshot at each of: landing, lobby, mid-action,
+  game-over.
+- For each screenshot, eval **side-by-side mentally compares** to a
+  reference Stardew Valley screenshot (eval may web-search "stardew
+  valley screenshot game" via WebFetch to ground the comparison).
+- Eval returns `passed: false` if **any** of these fails on **any**
+  screenshot:
+  - Visible flat-color blocks (background, ground, walls)
+  - Default Godot UI fonts visible in user-facing chrome
+  - Default Godot Control panels (gray boxes) visible
+  - Characters readable as "stick figure / 4-color blob" rather than
+    "shaded pixel-art character"
+  - Empty regions with no ambient detail (no tufts, no smoke, no
+    motion)
+
+Eval narrates which screenshot fails which check, with file path
+and pixel coordinates.
+
+### §H4. Don't regress acceptance A-G
+
+§H is **strictly additive**. All v3 functional acceptance (game
+logic, headless sim, agency picker, cinematic camera, stay-at-target,
+persistent shame) must continue to pass. The aesthetic pass touches
+asset pipelines, sprite generators, UI theme resources, palette,
+ambient particle scenes — NOT the game-logic packages.
+
+### §H5. Hot-swap art slot still works
+
+When user provides hand-drawn art later, drop into:
+- `client/assets/sprites/characters/`
+- `client/assets/sprites/houses/`
+- `client/assets/sprites/tiles/`
+
+Loader prefers user assets over CC0 / procedural fallback (per the
+existing §C / asset-loading contract).
