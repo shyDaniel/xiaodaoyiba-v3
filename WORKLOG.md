@@ -175,3 +175,55 @@ adding another dependency just for two response headers.
 from v2 (S-002), then `server/src/{index.ts, sim.ts, rooms/Room.ts,
 matchmaking.ts}` (S-003 / S-004). After that the headless sim path
 (criterion A1–A4) is unblocked and the Godot client can begin (S-005).
+
+---
+
+## S-098 — fix CRITICAL Lobby crash (@onready paths, smoke test)
+
+**Bug:** Lobby.tscn nests its content under `Card/V/...` (yellow-bordered
+PanelContainer wrapper added in S-005) but Lobby.gd still queried
+`$V/Code`, `$V/Members/List`, `$V/Buttons/{AddBot,Start,Leave}` —
+relics from before the Card wrapper. On first `_ready()`, every
+`@onready` resolved to `null`, and `_add_bot.pressed.connect(...)` hit
+`Invalid access to property or key 'pressed' on a base object of type
+'null instance'`. End-user impact: clicking 创建房间 from Landing
+loaded Lobby and instantly crashed — no room code visible, no member
+list, all three buttons dead.
+
+**Fix:** retargeted the five `@onready` paths in
+`client/scripts/ui/Lobby.gd:11-15` to `$Card/V/...` (one-character-per-
+line change; no .tscn restructuring needed since the .tscn shape is
+correct).
+
+**Smoke test:** added `client/tests/smoke_lobby.gd` — instantiates
+Lobby.tscn against a mocked `GameState` (3 players, host=true,
+room_code=ABCD), waits 5 frames, then asserts:
+1. all five `@onready` vars are non-null and valid,
+2. `_code_label.text` contains "ABCD",
+3. `_members` rendered exactly 3 child rows,
+4. `AddBot` and `Start` buttons are enabled (host gating).
+
+Verified by **temporarily reverting the fix** — the test correctly
+fails with the exact stderr signature from the bug report:
+`Node not found: "V/Code"` ... `Node not found: "V/Buttons/Leave"`,
+followed by `Invalid access to property or key 'pressed' on a base
+object of type 'null instance' at: _ready (Lobby.gd:18)`. Restored
+the fix, test passes:
+
+    [smoke_lobby] PASS — Lobby instantiated cleanly, all @onready
+    vars bound, 3 rows rendered, host buttons enabled.
+
+**Visual eyeball:** added `client/tests/render_lobby.gd` to render the
+Lobby with mock data to `/tmp/xdyb_lobby.png`. The PNG shows the
+yellow-bordered card with `房号 ABCD` heading, three coloured
+member rows (`小明 ★`, `小红`, `机器人甲 (bot)`), and the three
+buttons (`加机器人`, `开始`, `离开`) — all visible and styled.
+
+**Run:** `godot --headless --path client --script res://tests/smoke_lobby.gd`
+exits 0; godot --headless --import is still clean.
+
+**Outstanding (next iteration candidates):** §C9 emoji glyphs (✊✋✌
+boxes), §C11 viral-aesthetic gate (sprites empty), §A4 codegen-
+timing.ts missing, §E5 GitHub Actions workflow absent, characters
+rendering inside house walls in Game.tscn, parallax mountains
+off-screen.

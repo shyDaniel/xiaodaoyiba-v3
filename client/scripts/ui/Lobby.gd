@@ -8,11 +8,11 @@
 
 extends Control
 
-@onready var _code_label: Label = $V/Code
-@onready var _members: VBoxContainer = $V/Members/List
-@onready var _add_bot: Button = $V/Buttons/AddBot
-@onready var _start: Button = $V/Buttons/Start
-@onready var _leave: Button = $V/Buttons/Leave
+@onready var _code_label: Label = $Card/V/Code
+@onready var _members: VBoxContainer = $Card/V/Members/List
+@onready var _add_bot: Button = $Card/V/Buttons/AddBot
+@onready var _start: Button = $Card/V/Buttons/Start
+@onready var _leave: Button = $Card/V/Buttons/Leave
 
 func _ready() -> void:
 	_add_bot.pressed.connect(GameState.add_bot)
