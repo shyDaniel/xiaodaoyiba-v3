@@ -1235,3 +1235,64 @@ the choreography `engine.ts:resolveRound()` is supposed to emit.
 PASS; `node scripts/validate-game-progression.mjs` PASS
 (`sawChoiceTx=true sawEffectsRx=true sawPhasePlaying=true
 PHASE_START=6 effects, RPS_REVEAL=1 effect`).
+
+## S-243 — round-loop freeze fix: HandPicker re-enables on every new round
+
+**Problem.** After R1.IMPACT the human's HandPicker stayed disabled
+forever. Server emitted R2 `room:snapshot` with `phase=PLAYING
+round=2 hasSubmitted=false` for the human and bots auto-submitted,
+but the client UI was frozen — `t10000.png` and `t15000.png` were
+byte-identical (`md5 cb37547618826e5340ba8628964173c5`) and zero R2
+`room:choice` TX frames appeared on the wire.
+
+**Root cause.** `GameStage._on_choice_made` calls
+`hand_picker.set_locked(true)` after the human submits R1 and
+**never** resets it. `_on_snapshot` ran on every round-start
+broadcast but only synced player positions / stages — it had no
+round-transition awareness, so the per-round UI (HandPicker,
+WinnerPicker, throw glyphs) carried stale R1 state into R2.
+
+**Fix.** `client/scripts/stage/GameStage.gd:108-148` — track
+`_last_round_seen` and, when `_on_snapshot` first observes
+`phase=PLAYING round > _last_round_seen`, call a new
+`_reset_round_ui()` that:
+  1. Hides every character's REVEAL throw glyph
+     (`Character.hide_throw()` is idempotent).
+  2. Closes the WinnerPicker if it lingered open
+     (`WinnerPicker.close()` is idempotent).
+  3. Re-enables the HandPicker for the local human IFF they're
+     alive AND haven't already submitted for THIS round (defensive
+     against the snapshot-after-our-own-submit race where the same
+     reset path would otherwise unlock a button we just clicked).
+Reset to 0 on phase=LOBBY so a rematch starts fresh.
+
+**Acceptance — multi-round driver.** Extended
+`scripts/validate-game-progression.mjs` to throw ROCK three times
+across three rounds (R1→R2→R3) with screenshots at
+1/3/5/7/10/13/18/22/27 s. Switched the lobby keypress path to the
+`window.xdyb_lobby_addBot()` / `xdyb_lobby_start()` JS bridge — the
+old `page.keyboard.press("KeyA")` path double-fired (document-shim
++ Godot `_input` both consumed the event), spawning 2 bots per "A"
+press and filling the room to 6 players, killing the human in R2
+before the multi-round acceptance could trigger. Reduced default to
+`NUM_BOTS=2` (3-player room) so the human survives long enough.
+
+**Verification.** New `/tmp/judge_shots/` run shows:
+- 3 distinct `TX 42["room:choice",{"choice":"ROCK"}]` frames in
+  `wsframes.txt` (R1, R2, R3 throws all sent).
+- 3 `RPS_REVEAL` effect frames RX (one per round; R1+R2+R3 all
+  resolved server-side).
+- 1 `room:snapshot` frame with `"round":3 phase=PLAYING`.
+- `t10000.png != t13000.png != t18000.png` — the previously-stuck
+  freeze (md5 `cb37547618826e5340ba8628964173c5` x2) is gone.
+- `t18000.png` shows banner "R3 · PULL_PANTS", BattleLog rows for
+  R1.round, R1.rps, R1.narr PULL, R2.round, R2.tie, R2.narr TIE,
+  R3.round, R3.rps — three rounds of chronological log entries
+  visible in one frame.
+
+**Run:** `pnpm test` 90/90 green; `bash scripts/build.sh
+--client-only` Godot HTML5 export OK;
+`SHOTS=/tmp/judge_shots node scripts/validate-game-progression.mjs`
+→ `[drive] PASS (multi-round S-243)`
+`(sawChoiceTx=true (3 frames) sawEffectsRx=true sawPhasePlaying=true
+sawRound3=true RPS_REVEAL=3 room:effects=3)`.

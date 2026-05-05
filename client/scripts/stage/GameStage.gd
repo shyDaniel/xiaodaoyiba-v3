@@ -40,6 +40,11 @@ const Character := preload("res://scripts/characters/Character.gd")
 var _characters: Dictionary = {}        # player_id → Character
 var _houses: Dictionary = {}            # player_id → Node2D
 var _player_order: Array = []           # player ids in iteration order
+# S-243 — track round transitions so we can re-enable per-round UI
+# (HandPicker, WinnerPicker, throw glyphs) when the server begins a
+# new round. Initialized to 0 because the LOBBY snapshot has round=0
+# and the first PLAYING snapshot has round=1.
+var _last_round_seen: int = 0
 
 func _ready() -> void:
 	_paint_ground()
@@ -99,6 +104,48 @@ func _on_snapshot(snap: Dictionary) -> void:
 		var pid := String(p.get("id", ""))
 		var stage_str := String(p.get("stage", "ALIVE_CLOTHED"))
 		set_player_stage(pid, stage_str)
+
+	# S-243 — round transition detection. The server emits a fresh
+	# snapshot at the start of every round (beginRound() resets choices
+	# and broadcasts). When we see round N+1 for the first time, the
+	# previous round's UI is stale: HandPicker is locked from the prior
+	# throw, throw glyphs may still be visible, and the WinnerPicker may
+	# be lingering on a closed prompt. Reset all three so the human can
+	# throw again. Without this the round loop visibly freezes after R1.
+	var phase := String(snap.get("phase", ""))
+	var current_round := int(snap.get("round", 0))
+	if phase == "PLAYING" and current_round > _last_round_seen:
+		_last_round_seen = current_round
+		_reset_round_ui(players)
+	elif phase == "LOBBY":
+		_last_round_seen = 0
+
+func _reset_round_ui(players: Array) -> void:
+	# Clear any lingering throw glyphs from the previous REVEAL phase.
+	for c in _characters.values():
+		if c != null and c.has_method("hide_throw"):
+			(c as Character).hide_throw()
+	# Hide the winner picker if it was left open.
+	if winner_picker != null and winner_picker.has_method("close"):
+		winner_picker.close()
+	# Re-enable the HandPicker for the local human, but only if they
+	# are still alive AND have not already submitted for THIS round
+	# (defensive — covers the snapshot-after-our-own-submit case where
+	# this resync would otherwise unlock a button we just clicked).
+	var my_id := GameState.my_player_id
+	var my_alive := false
+	var my_submitted := false
+	for p in players:
+		var pd: Dictionary = p
+		if String(pd.get("id", "")) != my_id:
+			continue
+		my_alive = String(pd.get("stage", "DEAD")) != "DEAD"
+		my_submitted = bool(pd.get("hasSubmitted", false))
+		break
+	if hand_picker != null:
+		hand_picker.visible = my_alive
+		if hand_picker.has_method("set_locked"):
+			hand_picker.set_locked(my_submitted or not my_alive)
 
 func _player_grid_pos(i: int, n: int) -> Vector2i:
 	var angle := TAU * float(i) / float(max(n, 1)) - TAU * 0.25
