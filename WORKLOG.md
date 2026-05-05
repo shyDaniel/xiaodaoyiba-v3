@@ -1296,3 +1296,54 @@ before the multi-round acceptance could trigger. Reduced default to
 → `[drive] PASS (multi-round S-243)`
 `(sawChoiceTx=true (3 frames) sawEffectsRx=true sawPhasePlaying=true
 sawRound3=true RPS_REVEAL=3 room:effects=3)`.
+
+
+## Iteration 44 — S-253 — server bot-only round auto-advance (multi-round R3+ playback after human DEAD)
+
+**Symptom.** After S-243, `validate-game-progression.mjs` still
+reported `PARTIAL — single-round criteria pass but multi-round
+freeze still present`. The judge captured byte-identical screenshots
+post-IMPACT (`t18000.png == t22000.png == t27000.png`, md5
+`fb81772b/3b077647` cycle is just the banner blink). The server
+broadcast a snapshot with `round:3` and `hasSubmitted=true` for all
+remaining bots, but **never emitted `room:effects` for R3** — only 2
+`room:effects` frames in `wsframes.txt` (R1 + R2).
+
+**Root cause.** `Room.beginRound()` (server/src/rooms/Room.ts:352)
+auto-submits choices for every alive bot then broadcasts the
+snapshot, but it **never checks `allAliveSubmitted()`**. That check
+lives only in the human path (`submitChoice()` line 303). When the
+local human dies in R2.IMPACT, R3 starts with no alive humans —
+bots auto-submit, snapshot fires, then the room sits forever
+waiting for a `room:choice` event from a player that no longer
+exists. R3 never resolves; `room:effects` never broadcasts; the
+dead human's spectator client has nothing new to render.
+
+**Fix.** After auto-submitting bots in `beginRound()`, kick
+`openWinnerChoiceWindow()` via `setImmediate(...)` when
+`allAliveSubmitted()` returns true. The `setImmediate` defers one
+event-loop tick so the new-round snapshot lands before the effects
+payload (clients render `round=3` / `hasSubmitted=true` first, then
+animate the round). With humans alive the snapshot's
+`allAliveSubmitted()` is false (human hasn't submitted yet) and
+the new branch is a no-op — the existing `submitChoice()` path
+still drives the round forward as before. This makes the dead-human
+spectator path Just Work without any client changes: the existing
+`EffectPlayer` already plays whatever `room:effects` payload the
+server sends, regardless of whether the local player is alive.
+
+**Verification.**
+- `pnpm test`: 90/90 green (3 shared + 7 sim + 4 socket.io e2e).
+- `pnpm sim --players 4 --bots counter,random,iron,mirror
+  --winner-strategy random-target+random-action --rounds 50
+  --seed 42`: tie_rate=0.260, no player>60%, PULL_OWN_PANTS_UP fires.
+- `SHOTS=/tmp/judge_s253 NUM_BOTS=2 node
+  scripts/validate-game-progression.mjs`:
+  `[drive] PASS (multi-round S-243)` — 4 RPS_REVEAL frames, 3
+  distinct human room:choice TX frames, 4 room:effects RX, sawRound3=true.
+  `wsframes.txt` shows `round:0..4` and one `isGameOver:true` —
+  the game ran R1→R4 to completion in 27s of wall time.
+- Screenshot deltas: md5 `t13000` ≠ `t18000` ≠ `t22000` — the
+  previously-stuck post-IMPACT freeze is gone. `t22000 == t27000`
+  is the GAME_OVER victory hold (game ended at R4), which is
+  correct end-state behavior.

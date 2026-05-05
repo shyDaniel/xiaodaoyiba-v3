@@ -369,6 +369,21 @@ export class Room {
       this.choices[member.id] = choice;
     }
     this.broadcastSnapshot();
+    // S-253 — spectator-mode auto-advance. When no humans are alive
+    // (or no humans remain in the room at all), bots are the only
+    // submitters; without this kick the round hangs forever waiting
+    // for a human submitChoice() that will never come and the dead
+    // human's client never sees R3+ effects. Defer one tick so the
+    // snapshot broadcast above lands first (clients render the new
+    // round number / hasSubmitted=true on bots before the effects
+    // payload arrives).
+    if (this.allAliveSubmitted()) {
+      setImmediate(() => {
+        if (this.phase === 'PLAYING' && this.allAliveSubmitted()) {
+          this.openWinnerChoiceWindow();
+        }
+      });
+    }
   }
 
   private allAliveSubmitted(): boolean {
