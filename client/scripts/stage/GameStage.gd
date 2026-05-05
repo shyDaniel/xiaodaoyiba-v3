@@ -45,9 +45,27 @@ var _player_order: Array = []           # player ids in iteration order
 # Array of visitor pids currently camped on that house anchor (in
 # arrival order). Used by _apply_visit_label_stack to fan multiple
 # visitors' NameLabels out vertically instead of dumping them all on
-# top of each other (the t27000 'counterorandom' regression). Cleared
-# on every round transition by _reset_round_ui.
+# top of each other (the t27000 'counterorandom' regression).
+#
+# S-297 — this ledger is NO LONGER cleared on round transition. The
+# previous behavior (clear in _reset_round_ui) re-collapsed all
+# stack indices to 0 every round, so when prior-round visitors stayed
+# camped (per §C3 no-return-home) and a new TIE round began, the next
+# round's labels overlapped again ('randomNi97', 'randominter',
+# 'counrandom' in the iter-48 judge screenshots). The ledger is now
+# rebuilt every frame from actual world positions in
+# _reconcile_label_stacks (any 2+ characters within ≤32 px of the
+# same house anchor get distinct stack indices).
 var _house_occupants: Dictionary = {}   # target_pid → Array[String]
+# S-297 — anchor proximity threshold. Two characters within this many
+# pixels of the same house anchor are treated as co-anchored and get
+# distinct stack indices. 32 px matches the brief's spec.
+const ANCHOR_PROXIMITY_PX: float = 32.0
+# S-297 — last-tick stack assignment per pid, so we only call
+# set_label_stack_index when something actually changed (avoids
+# pointless tween churn / theme override thrash every frame).
+var _label_stack_cache: Dictionary = {}     # pid → int
+var _label_dim_cache: Dictionary = {}       # pid → bool
 # S-243 — track round transitions so we can re-enable per-round UI
 # (HandPicker, WinnerPicker, throw glyphs) when the server begins a
 # new round. Initialized to 0 because the LOBBY snapshot has round=0
@@ -146,24 +164,19 @@ func _reset_round_ui(players: Array) -> void:
 	for c in _characters.values():
 		if c != null and c.has_method("hide_throw"):
 			(c as Character).hide_throw()
-	# S-269 / S-285 — clear any visiting-stack / resident-dim label
-	# state from the previous round. Once a new round starts every
-	# character is back in its own house (the engine no longer has
-	# PHASE_T_RETURN but the next REVEAL pegs them to their home
-	# anchor implicitly), so neither the visit-stack offset nor the
-	# resident dim should persist into a fresh round. Clearing
-	# _house_occupants is critical: without it, a visitor from R3 who
-	# never explicitly teleported home would still occupy the
-	# resident's anchor in R4, and the next visit would stack on top.
-	_house_occupants.clear()
-	for c in _characters.values():
-		if c == null:
-			continue
-		var ch := c as Character
-		if ch.has_method("set_label_stack_index"):
-			ch.set_label_stack_index(0)
-		if ch.has_method("set_label_resident_dimmed"):
-			ch.set_label_resident_dimmed(false)
+	# S-297 — DO NOT clear _house_occupants or zero stack indices here.
+	# The previous behaviour (clear-on-round-transition) was the root
+	# cause of the iter-48 'randomNi97' / 'counrandom' regression:
+	# per §C3 the engine drops PHASE_T_RETURN so visiting characters
+	# stay camped at the target's house. If we zero their stack index
+	# at every round-start, then in the very next TIE / spectator round
+	# we render every camped character at idx=0 again — and N≥2 labels
+	# overlap into garbled OCR glyphs. The per-frame
+	# _reconcile_label_stacks() pass below is now the single source of
+	# truth: it walks every character every frame and re-assigns stack
+	# indices from CURRENT world positions. When a character actually
+	# returns home (teleport_home) or moves away from the shared anchor
+	# the reconciler will naturally assign idx=0 to them next frame.
 	# Hide the winner picker if it was left open.
 	if winner_picker != null and winner_picker.has_method("close"):
 		winner_picker.close()
@@ -185,6 +198,69 @@ func _reset_round_ui(players: Array) -> void:
 		hand_picker.visible = my_alive
 		if hand_picker.has_method("set_locked"):
 			hand_picker.set_locked(my_submitted or not my_alive)
+
+# S-297 — per-frame anchor reconciliation. This is the single source of
+# truth for NameLabel stack indices. Every frame we:
+#   1. Walk every character, find the nearest house anchor (within
+#      ANCHOR_PROXIMITY_PX). The character's "owner" anchor is its own
+#      house (resident); anyone within proximity of a NON-owner house
+#      counts as a visitor on that house.
+#   2. For each anchor that has ≥1 visitor, build the occupants list
+#      [resident, visitor1, visitor2, …] sorted deterministically
+#      (resident first, visitors by pid asc). Assign stack indices
+#      0, 1, 2, … in that order.
+#   3. For each anchor with 0 visitors, assign idx=0 to the resident
+#      and clear the resident-dim flag.
+#   4. For each character that is NOT near any house anchor (mid-rush /
+#      teleporting), assign idx=0.
+# Cache the last assignment per pid so we only call set_label_stack_index
+# when something actually changed (avoid theme-override thrash).
+#
+# This replaces the one-shot _apply_visit_label_stack hook that only
+# fired inside play_action's PULL_PANTS / CHOP branches. The old hook
+# missed the §C3 no-return-home case: a visitor camped from R3 that
+# survives a TIE in R4 never re-fires play_action, so its label
+# collapsed back to idx=0 and overlapped the resident.
+func _process(_delta: float) -> void:
+	_reconcile_label_stacks()
+
+func _reconcile_label_stacks() -> void:
+	if _characters.is_empty() or _houses.is_empty():
+		return
+	# House anchor sits at its base; the character anchor is at its
+	# feet, but characters spawn at house_pos + (0, 64) in
+	# _ensure_character. Comparing against (0, 64) means a resident
+	# at home registers distance 0 from its anchor (perfect match),
+	# and a visitor at target_char.pos + (-32, 0) lands at distance
+	# 32 — within ANCHOR_PROXIMITY_PX (32 + 0.5 epsilon).
+	var result: Dictionary = LabelStackReconciler.compute(
+		_characters, _houses, Vector2(0, 64), ANCHOR_PROXIMITY_PX)
+	var desired_idx: Dictionary = result.get("idx", {})
+	var desired_dim: Dictionary = result.get("dim", {})
+	# Mirror the freshly-computed occupants ledger into the legacy
+	# field so any external caller still reading it sees consistent
+	# state with the per-frame reconciliation.
+	_house_occupants = result.get("occupants", {})
+
+	# Apply to characters, only if changed (cache check) — this avoids
+	# pointless tween churn / theme override thrash every frame.
+	for cpid in desired_idx.keys():
+		var pid: String = String(cpid)
+		if not _characters.has(pid):
+			continue
+		var ch = _characters[pid] as Character
+		if ch == null:
+			continue
+		var want_idx: int = int(desired_idx[pid])
+		var want_dim: bool = bool(desired_dim[pid])
+		var prev_idx: int = int(_label_stack_cache.get(pid, -1))
+		var prev_dim: bool = bool(_label_dim_cache.get(pid, false))
+		if want_idx != prev_idx and ch.has_method("set_label_stack_index"):
+			ch.set_label_stack_index(want_idx)
+			_label_stack_cache[pid] = want_idx
+		if want_dim != prev_dim and ch.has_method("set_label_resident_dimmed"):
+			ch.set_label_resident_dimmed(want_dim)
+			_label_dim_cache[pid] = want_dim
 
 func _player_grid_pos(i: int, n: int) -> Vector2i:
 	var angle := TAU * float(i) / float(max(n, 1)) - TAU * 0.25
@@ -279,11 +355,14 @@ func play_action(actor: String, target: String, kind: String) -> void:
 		"PULL_PANTS":
 			Audio.play_sfx("pull")
 			actor_char.rush_to(target_char.position + Vector2(-32, 0), Timing.PHASE_T_RUSH)
-			_apply_visit_label_stack(actor, target)
+			# S-297 — name-label fan-out is handled by the per-frame
+			# _reconcile_label_stacks pass; no one-shot hook needed.
+			# Once rush_to lands the actor within ANCHOR_PROXIMITY_PX of
+			# the target's house anchor, the next _process tick assigns
+			# a fresh stack index from CURRENT world position.
 		"CHOP":
 			Audio.play_sfx("chop")
 			actor_char.rush_to(target_char.position + Vector2(-32, 0), Timing.PHASE_T_RUSH)
-			_apply_visit_label_stack(actor, target)
 		"PULL_OWN_PANTS_UP":
 			# Self-action: no rush, just a dignified flash.
 			actor_char.play_attack_wiggle()

@@ -1533,3 +1533,90 @@ overwrite it within the same animation tween.
   reads `R6 · PREP` (game progressed to R6 by t=27000ms with the
   added R4 throw); `t18000.png` reads `R3 · PULL_PANTS`. The
   previously-stuck post-IMPACT freeze is fully resolved.
+
+## S-297 — name-label fan-out incomplete on TIE / spectator rounds (iter-65)
+
+**§C8 NAME-LABEL FAN-OUT INCOMPLETE.** S-285 only fixed the
+3-actor pile-up case for the round in which `play_action` was
+invoked. The judge screenshots `t10000.png "randomNi97"`,
+`t22000.png "randominter"`, `t27000.png "counrandom"` showed the
+bug still firing in the live runtime: when prior-round visitors
+stayed camped at the resident's house (per FINAL_GOAL §C3
+"no return-home phase"), the next round transitioned WITHOUT
+calling `play_action` (TIE-only or dead-human spectator round),
+and `_reset_round_ui` cleared `_house_occupants` and reset every
+character to `set_label_stack_index(0)` — collapsing all the
+camped labels back on top of each other for that round.
+
+**Root cause.** The label-stack assignment was a one-shot side
+effect of `play_action`'s `PULL_PANTS` / `CHOP` branches (the
+`_apply_visit_label_stack` call at line ~1180). Round-transition
+cleanup (`_reset_round_ui`) was symmetric: it cleared the
+occupant map and zeroed every stack index. On TIE rounds and on
+rounds where the human was dead/spectating, no `play_action`
+ever fired, so nothing re-applied the stack — but the cleanup
+still ran on every snapshot rollover. Result: characters
+remained at their post-rush world positions but their labels
+collapsed back to `idx=0`.
+
+**Fix.** Move stack-index assignment out of the one-shot
+`play_action` hook and into a per-frame reconciler driven by
+ACTUAL world positions:
+- New `client/scripts/stage/LabelStackReconciler.gd` — pure
+  algorithm, zero autoload deps (so headless tests can preload
+  it without dragging in `GameState` / `Audio` / `Timing`).
+  Single `static func compute(characters, houses, anchor_offset,
+  proximity_px) -> {idx, dim, occupants}`. For each character
+  finds the nearest house anchor within `proximity_px + 0.5`
+  epsilon (so the PULL_PANTS landing at `target.pos + (-32, 0)`
+  exactly satisfies); groups by anchor; resident gets `idx=0`,
+  visitors sorted by pid ascending get `idx 1, 2, 3, …`;
+  resident dimmed iff `≥1` visitor.
+- `client/scripts/stage/GameStage.gd`: added `_process(_delta)`
+  → `_reconcile_label_stacks()` that calls the reconciler every
+  frame and applies the result via `set_label_stack_index` /
+  `set_label_resident_dimmed` with `_label_stack_cache` /
+  `_label_dim_cache` no-op guards (avoids tween thrash).
+  Constants: `ANCHOR_PROXIMITY_PX = 32.0`, anchor offset
+  `Vector2(0, 64)` matches `_ensure_character` placement.
+- Removed both `_apply_visit_label_stack(actor, target)` calls
+  from `play_action` (replaced with explanatory comments — the
+  reconciler picks them up next frame from world position).
+- Gutted `_reset_round_ui`'s clearing logic — it no longer
+  zeros `_house_occupants` or resets stack indices. The
+  reconciler keeps state in sync from world position; if a
+  visitor walks away, the next reconcile re-assigns idx=0 and
+  un-dims the resident (covered by the round-trip assertion).
+
+The protocol is unchanged; the server has no name-label state.
+Live players, dead-spectator humans, and bot-only games all
+follow the same per-frame path now — there is no longer a
+"play_action triggered" vs "play_action did not trigger" split.
+
+**Verification.**
+- `pnpm test`: 79 + 11 = 90 tests green (shared + server).
+- `pnpm sim --players 4 --bots counter,random,iron,mirror
+  --rounds 50 --seed 42`: 7 games, 50 rounds, 13 ties
+  (tie_rate=0.260), winner=p0, sim duration 7 ms — covers the
+  exact tie-rich and dead-spectator path that previously
+  exposed the bug.
+- `godot --headless --path client/ --script
+  tests/render_label_collision.gd`: PASS (S-269 legacy 2-actor:
+  `dy=28.00 min_gap=24.00`).
+- `godot --headless --path client/ --script
+  tests/render_label_collision_3actor.gd`: PASS (S-285 legacy
+  4-label fan-out: `0 pairwise overlap area, ≥20px gap per
+  occupant`).
+- `godot --headless --path client/ --script
+  tests/render_label_collision_persist.gd`: NEW — PASS. Spawns
+  1 resident + 3 visitors all at the same anchor, runs 5
+  reconciliation passes WITHOUT any `play_action` call (the
+  TIE / spectator round case), asserts pairwise label rect
+  intersection area = 0 at every transition, asserts resident
+  alpha = 0.5 and visitors alpha = 1.0 across all 5
+  transitions, verifies deterministic alphabetical visitor
+  ordering (`counter=1, iron=2, mirror=3`), and round-trips
+  cleanly (resident un-dims, visitor outlines reset to default)
+  when visitors walk off-anchor.
+- `godot --headless --path client/ --import`: clean (exit 0,
+  no compile errors).
