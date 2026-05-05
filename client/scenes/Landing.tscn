@@ -1,6 +1,7 @@
-[gd_scene load_steps=3 format=3 uid="uid://bxdyb_landing_v1"]
+[gd_scene load_steps=4 format=3 uid="uid://bxdyb_landing_v1"]
 
 [ext_resource type="Script" path="res://scripts/ui/Landing.gd" id="1_landing"]
+[ext_resource type="Script" path="res://scripts/ui/LandingHero.gd" id="2_hero"]
 
 [sub_resource type="StyleBoxFlat" id="card"]
 bg_color = Color(0.094, 0.106, 0.149, 0.94)
@@ -30,69 +31,41 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0.18, 0.27, 0.43, 1)
+color = Color(0.50, 0.68, 0.82, 1)
+
+[node name="SkyHorizon" type="ColorRect" parent="."]
+layout_mode = 1
+offset_left = 0.0
+offset_top = 200.0
+offset_right = 1280.0
+offset_bottom = 320.0
+color = Color(0.95, 0.78, 0.55, 0.40)
+
+[node name="MountainsBack" type="Polygon2D" parent="."]
+position = Vector2(0, 280)
+color = Color(0.42, 0.52, 0.62, 1)
+polygon = PackedVector2Array(0, 0, 220, -120, 460, -50, 720, -150, 980, -70, 1280, -130, 1280, 80, 0, 80)
 
 [node name="Mountains" type="Polygon2D" parent="."]
-position = Vector2(0, 540)
+position = Vector2(0, 310)
 color = Color(0.27, 0.35, 0.44, 1)
-polygon = PackedVector2Array(0, 0, 200, -180, 480, -80, 760, -240, 1080, -100, 1280, -200, 1280, 180, 0, 180)
+polygon = PackedVector2Array(0, 0, 200, -130, 480, -55, 760, -170, 1080, -75, 1280, -140, 1280, 60, 0, 60)
+
+[node name="MountainSnow" type="Polygon2D" parent="."]
+position = Vector2(0, 310)
+color = Color(0.92, 0.94, 1.0, 1)
+polygon = PackedVector2Array(180, -128, 200, -130, 220, -128, 740, -168, 760, -170, 780, -168, 1060, -73, 1080, -75, 1100, -73)
 
 [node name="Grass" type="ColorRect" parent="."]
 layout_mode = 1
-anchor_top = 0.62
+anchor_top = 0.42
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0.36, 0.5, 0.27, 1)
+color = Color(0.32, 0.50, 0.30, 1)
 
-[node name="Hero" type="Node2D" parent="."]
-position = Vector2(960, 480)
-
-[node name="HouseRoof" type="Polygon2D" parent="Hero"]
-color = Color(0.78, 0.36, 0.23, 1)
-polygon = PackedVector2Array(-150, 0, 150, 0, 0, -110)
-
-[node name="HouseWalls" type="Polygon2D" parent="Hero"]
-color = Color(0.93, 0.84, 0.66, 1)
-polygon = PackedVector2Array(-128, 0, 128, 0, 128, 140, -128, 140)
-
-[node name="HouseDoor" type="Polygon2D" parent="Hero"]
-color = Color(0.32, 0.18, 0.08, 1)
-polygon = PackedVector2Array(-30, 60, 30, 60, 30, 140, -30, 140)
-
-[node name="HouseWindowL" type="Polygon2D" parent="Hero"]
-color = Color(0.55, 0.78, 0.92, 1)
-polygon = PackedVector2Array(-100, 30, -60, 30, -60, 60, -100, 60)
-
-[node name="HouseWindowR" type="Polygon2D" parent="Hero"]
-color = Color(0.55, 0.78, 0.92, 1)
-polygon = PackedVector2Array(60, 30, 100, 30, 100, 60, 60, 60)
-
-[node name="Char" type="Node2D" parent="."]
-position = Vector2(420, 540)
-
-[node name="Legs" type="Polygon2D" parent="Char"]
-color = Color(0.31, 0.21, 0.13, 1)
-polygon = PackedVector2Array(-22, 0, 22, 0, 22, 56, -22, 56)
-
-[node name="Pants" type="Polygon2D" parent="Char"]
-color = Color(0.85, 0.18, 0.22, 1)
-polygon = PackedVector2Array(-22, 22, 22, 22, 22, 42, -22, 42)
-
-[node name="Torso" type="Polygon2D" parent="Char"]
-color = Color(0.4, 0.55, 0.85, 1)
-polygon = PackedVector2Array(-30, -64, 30, -64, 26, 0, -26, 0)
-
-[node name="Head" type="Polygon2D" parent="Char"]
-color = Color(0.95, 0.84, 0.7, 1)
-polygon = PackedVector2Array(-22, -100, 22, -100, 22, -64, -22, -64)
-
-[node name="Knife" type="Polygon2D" parent="Char"]
-color = Color(0.88, 0.92, 0.98, 1)
-polygon = PackedVector2Array(28, -50, 90, -98, 100, -88, 38, -40)
-
-[node name="KnifeHilt" type="Polygon2D" parent="Char"]
-color = Color(0.45, 0.27, 0.12, 1)
-polygon = PackedVector2Array(20, -36, 32, -54, 44, -42, 32, -24)
+[node name="IsoPreview" type="Node2D" parent="."]
+position = Vector2(820, 500)
+script = ExtResource("2_hero")
 
 [node name="Title" type="Label" parent="."]
 layout_mode = 1

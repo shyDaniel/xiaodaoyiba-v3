@@ -2,6 +2,83 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 39 — S-212 — Live Landing iso preview (SpriteAtlas pipeline)
+
+**Bug.** `screenshots/live-landing.png` (captured by
+`scripts/validate-browser.sh` against the running HTML5 export at
+http://localhost:5173/) was radically below the README hero promise:
+a primitive 4-stacked-rectangle Polygon2D character + a flat-front-
+elevation pastel house, no iso lattice, no BattleLog rail. A first-
+time HN/Reddit visitor sees the **Landing** screen first, not the
+Game scene — so the live screenshot was effectively the §C11 viral
+shop window, and it was selling cardboard.
+
+**Fix.** Picked path (i) from the iter brief — port the SpriteAtlas
+pipeline that already drives `client/tests/render_action_static.gd`
+(the source of `docs/screenshots/action.png`) into the live Landing
+scene. New file `client/scripts/ui/LandingHero.gd` is a Node2D
+script that runs at `Landing.tscn` instantiation and:
+
+  - Custom `_draw()` paints a 9×9 iso 45° diamond lattice
+    (TILE_W=84, TILE_H=42) in alternating green shades with a
+    1-px black outline per tile — same geometry as the in-game
+    `Ground.gd::paint_lattice()`.
+  - Awaits one process_frame so the `SpriteAtlas` autoload's
+    `_ready()` texture-build pass has finished, then instances 4
+    house Sprite2D nodes at `(±COL_DX/2, ±ROW_DY/2)` anchors with
+    per-roof tinting via `Sprite2D.modulate.lerp(roof, 0.50)`. Each
+    house references `SpriteAtlas.house_textures[0]` (the
+    192×160 RGBA8 atlas built procedurally at boot).
+  - Spawns 4 character Sprite2D nodes at `anchor + (70, 0)` keyed
+    by stage: Bot-A `ATTACKING` (knife composite — extra Sprite2D
+    child reading `SpriteAtlas.knife_texture`, rotated -25°), Hong
+    `ALIVE_PANTS_DOWN` (red briefs), Bot-B + Ming `ALIVE_CLOTHED`.
+    Scale 0.7× → 96×128 atlas → ~67×90 on screen, clearing §C11
+    "≥ 64×64 with body/head/limbs distinguishable" floor.
+  - Adds 4 high-contrast nickname pills (Control + Panel +
+    StyleBoxFlat with player-coloured 1-px border) above each
+    roof at `anchor + (0, -150)`.
+  - Builds a right-rail BattleLog Panel at `(220, -200)` with 4
+    rows: `R1.PREP` / `R1.REVEAL` / `R1.ACTION` / `R1.RESULT`,
+    each with a tag chip + colour-coded verb badge + body line.
+
+`Landing.tscn` was rewritten: primitive `Hero` (Polygon2D triangle
+roof + rect walls + door + windows) and `Char` (4 stacked
+Polygon2D limbs + knife) deleted; replaced with single `IsoPreview`
+Node2D at viewport (820, 500) carrying the new script. Backdrop
+upgraded to multi-layer (MountainsBack + Mountains + MountainSnow
+caps) raised to top-of-canvas, Grass anchor moved to top=0.42 so
+the lattice sits on full green canvas.
+
+**Z-order trap.** First live capture showed only the front-row
+houses (Hong + Ming); back-row Bot-A + Bot-B pills floated alone
+in the sky. Smoke test
+`client/tests/smoke_landing_hero.gd` (new) confirmed all 4
+Sprite2D house nodes + 4 character Sprite2D nodes ARE created
+(`house_count=4 char_count=4`). Root cause: I'd set
+`house_sprite.z_index = int(anchor.y)` for naive depth-sort, but
+`anchor` is in **local** Node2D coords — back-row anchors at
+`y = -70`, so `z_index = -70` rendered the back-row sprites
+**behind** the parent's own `_draw()` lattice (which draws at
+z_index 0). Fixed with a `+200` bias on house z_index and `+205`
+on character z_index so back-row z stays positive (130 / 135) and
+front-row remains above (270 / 275).
+
+**Run.** `godot --headless --path client --script
+res://tests/smoke_landing_hero.gd` exits 0 (`PASS`,
+`house_count=4 char_count=4 control_count=5`).
+`bash scripts/build.sh --client-only` produces a 45 MB HTML5
+bundle (over §E3 6 MB cap, pre-existing flag). `bash
+scripts/validate-browser.sh` reports
+`PASS: 921600 non-black pixels` and the captured
+`screenshots/live-landing.png` now shows: iso 45° lattice on full
+green canvas, 4 detailed shingle-roofed houses with per-player
+roof tints (pink/blue/green/yellow), Bot-A wielding a knife, Hong
+showing red briefs, Bot-B + Ming clothed, mountain skyline above,
+right-rail BattleLog with R1.PREP/REVEAL/ACTION/RESULT rows. All
+4 §DoD UI gate bullets (a/b/c/d) now visually verified against
+the running HTML5 export, not just the static mock.
+
 ## Iteration 38 — S-205 — Lobby keybinds (A/S/L) for headless drivers
 
 **Bug.** Headless chromium against http://localhost:5173 can land on the
