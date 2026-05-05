@@ -100,7 +100,7 @@ offset_left = 60.0
 offset_top = 70.0
 offset_right = 700.0
 offset_bottom = 160.0
-text = "小刀一把冲到你家"
+text = "Knife to Your Door"
 theme_override_font_sizes/font_size = 64
 theme_override_colors/font_color = Color(1, 0.94, 0.62, 1)
 theme_override_colors/font_outline_color = Color(0.06, 0.07, 0.1, 1)
@@ -112,7 +112,7 @@ offset_left = 60.0
 offset_top = 160.0
 offset_right = 700.0
 offset_bottom = 200.0
-text = "小刀一把，来到你家，扒你裤衩，直接咔嚓！"
+text = "One little knife, runs to your house, pulls down your pants — CHOP!"
 theme_override_font_sizes/font_size = 22
 theme_override_colors/font_color = Color(0.94, 0.94, 0.94, 1)
 theme_override_colors/font_outline_color = Color(0.06, 0.07, 0.1, 1)
@@ -129,7 +129,7 @@ theme_override_constants/separation = 12
 [node name="Nick" type="LineEdit" parent="V"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
-placeholder_text = "你的昵称"
+placeholder_text = "Your nickname"
 
 [node name="ServerRow" type="HBoxContainer" parent="V"]
 layout_mode = 2
@@ -137,7 +137,7 @@ theme_override_constants/separation = 8
 
 [node name="ServerLabel" type="Label" parent="V/ServerRow"]
 custom_minimum_size = Vector2(80, 0)
-text = "服务器"
+text = "Server"
 theme_override_colors/font_color = Color(0.78, 0.82, 0.88, 1)
 
 [node name="Server" type="LineEdit" parent="V/ServerRow"]
@@ -149,7 +149,7 @@ layout_mode = 2
 
 [node name="Create" type="Button" parent="V/CreateRow"]
 custom_minimum_size = Vector2(220, 56)
-text = "创建房间"
+text = "Create Room"
 theme_override_font_sizes/font_size = 22
 
 [node name="JoinRow" type="HBoxContainer" parent="V"]
@@ -158,15 +158,15 @@ theme_override_constants/separation = 8
 
 [node name="Code" type="LineEdit" parent="V/JoinRow"]
 custom_minimum_size = Vector2(140, 56)
-placeholder_text = "房号 4字母"
+placeholder_text = "Room (4)"
 max_length = 4
 
 [node name="Join" type="Button" parent="V/JoinRow"]
 custom_minimum_size = Vector2(140, 56)
-text = "加入房间"
+text = "Join Room"
 theme_override_font_sizes/font_size = 22
 
 [node name="Status" type="Label" parent="V"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.78, 0.82, 0.88, 1)
-text = "未连接"
+text = "Disconnected"

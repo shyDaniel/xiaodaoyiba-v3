@@ -1,19 +1,43 @@
 # BattleLog.gd — right-rail timestamped log of round events.
 #
-# FINAL_GOAL §C8 — color-coded verb badges:
-#   扒 yellow, 砍 red, 闪 cyan, 平 gray, 死 purple, 穿 cyan-blue.
-# Per-player stable name colors are applied by the caller (text already
-# carries the nickname); the verb badge itself uses the table here.
+# FINAL_GOAL §C8 — color-coded verb badges. The CN verb roster
+# (扒/砍/闪/平/死/穿) is rendered as Latin short tags in the live HTML5
+# build (S-192) so the log stays legible without a CJK system font:
+#   PULL yellow, CHOP red, DODGE cyan, TIE gray, DEAD purple, RESTORE cyan-blue.
+# Both the CN single-char keys (in case server NARRATION ever flows
+# through to the rail unchanged) and the Latin short tags map to the
+# same color, so call sites can pass either.
 
 extends PanelContainer
 
 const VERB_COLORS := {
+	# CN keys — kept so server NARRATION verbs still color-badge if they
+	# ever flow through to the rail unchanged.
 	"扒": Color(1.0, 0.84, 0.2, 1),
 	"砍": Color(0.92, 0.32, 0.28, 1),
 	"闪": Color(0.36, 0.86, 0.94, 1),
 	"平": Color(0.6, 0.62, 0.66, 1),
 	"死": Color(0.66, 0.42, 0.94, 1),
 	"穿": Color(0.32, 0.74, 0.94, 1),
+	# Latin short-tag keys — used by EffectPlayer's Latin log composer.
+	"PULL": Color(1.0, 0.84, 0.2, 1),
+	"CHOP": Color(0.92, 0.32, 0.28, 1),
+	"DODGE": Color(0.36, 0.86, 0.94, 1),
+	"TIE": Color(0.6, 0.62, 0.66, 1),
+	"DEAD": Color(0.66, 0.42, 0.94, 1),
+	"RESTORE": Color(0.32, 0.74, 0.94, 1),
+}
+
+# Map CN verb tags emitted by shared/server NARRATION effects to the Latin
+# short tags rendered in the live HTML5 log. EffectPlayer.gd uses this to
+# translate incoming server narration verbs before painting the badge.
+const CN_TO_LATIN_VERB := {
+	"扒": "PULL",
+	"砍": "CHOP",
+	"闪": "DODGE",
+	"平": "TIE",
+	"死": "DEAD",
+	"穿": "RESTORE",
 }
 
 @onready var _scroll: ScrollContainer = $V/Scroll

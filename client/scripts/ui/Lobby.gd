@@ -3,8 +3,11 @@
 # Shows:
 #   - the room code (so other humans can join)
 #   - the current member list (humans + bots)
-#   - host-only controls: 加机器人 / 开始
+#   - host-only controls: Add Bot / Start
 #   - leave button
+#
+# All visible strings are Latin so the live HTML5 build stays legible
+# without a CJK system font (S-192).
 
 extends Control
 
@@ -22,7 +25,7 @@ func _ready() -> void:
 	_render(GameState.snapshot)
 
 func _render(snap: Dictionary) -> void:
-	_code_label.text = "房号 %s" % GameState.room_code
+	_code_label.text = "Room %s" % GameState.room_code
 	for c in _members.get_children():
 		c.queue_free()
 	var players: Array = snap.get("players", [])

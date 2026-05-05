@@ -48,7 +48,7 @@ theme_override_styles/panel = SubResource("bg_wp")
 theme_override_constants/separation = 14
 
 [node name="Title" type="Label" parent="Center/Panel/V"]
-text = "你赢了！选个目标吧"
+text = "You won! Pick a target."
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 22
 theme_override_colors/font_color = Color(1, 0.94, 0.62, 1)
@@ -56,7 +56,7 @@ theme_override_colors/font_color = Color(1, 0.94, 0.62, 1)
 [node name="Targets" type="VBoxContainer" parent="Center/Panel/V"]
 
 [node name="Header" type="Label" parent="Center/Panel/V/Targets"]
-text = "目标"
+text = "Targets"
 theme_override_font_sizes/font_size = 14
 theme_override_colors/font_color = Color(0.78, 0.82, 0.88, 1)
 
@@ -68,21 +68,21 @@ theme_override_constants/separation = 12
 
 [node name="Pull" type="Button" parent="Center/Panel/V/Actions"]
 custom_minimum_size = Vector2(120, 56)
-text = "扒裤衩"
+text = "Pull pants"
 theme_override_font_sizes/font_size = 18
 
 [node name="Chop" type="Button" parent="Center/Panel/V/Actions"]
 custom_minimum_size = Vector2(120, 56)
-text = "咔嚓"
+text = "CHOP"
 theme_override_font_sizes/font_size = 18
 
 [node name="Self" type="Button" parent="Center/Panel/V/Actions"]
 custom_minimum_size = Vector2(120, 56)
-text = "穿好裤衩"
+text = "Pants up"
 theme_override_font_sizes/font_size = 18
 
 [node name="Countdown" type="Label" parent="Center/Panel/V"]
-text = "5.0s · 不选则自动"
+text = "5.0s - auto-pick if idle"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 14
 theme_override_colors/font_color = Color(0.86, 0.78, 0.42, 1)

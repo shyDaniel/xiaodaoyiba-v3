@@ -217,12 +217,24 @@ func set_player_stage(pid: String, stage_str: String) -> void:
 		"DEAD":
 			c.play_death()
 
+# Public lookup used by EffectPlayer to render Latin narration for the
+# right-rail BattleLog (S-192). Returns the player's Latin nickname, or
+# the raw id when no character is mounted yet.
+func nick_for_player(pid: String) -> String:
+	if pid.length() == 0:
+		return "?"
+	if _characters.has(pid):
+		var nick := String((_characters[pid] as Character).nickname)
+		if nick.length() > 0:
+			return nick
+	return pid
+
 func show_victory(winner_id) -> void:
 	victory_overlay.visible = true
 	var name := "?"
 	if winner_id != null and _characters.has(String(winner_id)):
 		name = (_characters[String(winner_id)] as Character).nickname
-	victory_label.text = "%s 获胜！" % name
+	victory_label.text = "%s WINS!" % name
 	Audio.cross_fade_bgm("victory")
 	Audio.play_sfx("victory")
 

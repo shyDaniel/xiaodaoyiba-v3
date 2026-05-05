@@ -48,13 +48,13 @@ theme_override_styles/panel = SubResource("card2")
 theme_override_constants/separation = 16
 
 [node name="Code" type="Label" parent="Card/V"]
-text = "房号 ----"
+text = "Room ----"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 32
 theme_override_colors/font_color = Color(1, 0.94, 0.62, 1)
 
 [node name="Hint" type="Label" parent="Card/V"]
-text = "把房号告诉朋友 · 加入后开始游戏"
+text = "Share the room code with friends - then Start"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 14
 theme_override_colors/font_color = Color(0.78, 0.82, 0.88, 1)
@@ -62,7 +62,7 @@ theme_override_colors/font_color = Color(0.78, 0.82, 0.88, 1)
 [node name="Members" type="VBoxContainer" parent="Card/V"]
 
 [node name="Title" type="Label" parent="Card/V/Members"]
-text = "玩家"
+text = "Players"
 theme_override_font_sizes/font_size = 16
 theme_override_colors/font_color = Color(0.94, 0.96, 0.99, 1)
 
@@ -75,15 +75,15 @@ theme_override_constants/separation = 12
 
 [node name="AddBot" type="Button" parent="Card/V/Buttons"]
 custom_minimum_size = Vector2(120, 48)
-text = "加机器人"
+text = "Add Bot"
 theme_override_font_sizes/font_size = 16
 
 [node name="Start" type="Button" parent="Card/V/Buttons"]
 custom_minimum_size = Vector2(120, 48)
-text = "开始"
+text = "Start"
 theme_override_font_sizes/font_size = 16
 
 [node name="Leave" type="Button" parent="Card/V/Buttons"]
 custom_minimum_size = Vector2(120, 48)
-text = "离开"
+text = "Leave"
 theme_override_font_sizes/font_size = 16

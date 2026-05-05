@@ -66,11 +66,14 @@ func play_round(payload: Dictionary) -> void:
 			stage.show_victory(winner_id)
 		round_finished.emit())
 
+const _BattleLog := preload("res://scripts/ui/BattleLog.gd")
+
 func _dispatch(e: Dictionary) -> void:
 	var t := String(e.get("type", ""))
 	match t:
 		"ROUND_START":
-			stage.battle_log.add_row(int(e.get("round", 0)), "round", "round %d 开打" % int(e.get("round", 0)), "")
+			stage.battle_log.add_row(int(e.get("round", 0)), "round",
+				"Round %d - fight!" % int(e.get("round", 0)), "")
 			Audio.play_sfx("tap")
 		"RPS_REVEAL":
 			var throws: Array = e.get("throws", [])
@@ -80,10 +83,13 @@ func _dispatch(e: Dictionary) -> void:
 			var winners: Array = e.get("winners", [])
 			var losers: Array = e.get("losers", [])
 			stage.battle_log.add_row(int(e.get("round", 0)), "rps",
-				"%d 胜 %d 败" % [winners.size(), losers.size()], "")
+				"%d win / %d lose" % [winners.size(), losers.size()], "")
 		"TIE_NARRATION":
-			stage.battle_log.add_row(int(e.get("round", 0)), "tie", String(e.get("text", "平局")), "平")
-			stage.show_tie_banner(String(e.get("text", "平局")))
+			# Server text is CN; render a Latin tie line in the live build
+			# so the log stays legible without a CJK system font (S-192).
+			stage.battle_log.add_row(int(e.get("round", 0)), "tie",
+				"Standoff - nobody moved", "TIE")
+			stage.show_tie_banner("TIE")
 		"PHASE_START":
 			var phase := String(e.get("phase", ""))
 			stage.on_phase_start(phase, int(e.get("round", 0)))
@@ -97,10 +103,43 @@ func _dispatch(e: Dictionary) -> void:
 			var pstage := String(e.get("stage", ""))
 			stage.set_player_stage(pid, pstage)
 		"NARRATION":
+			# Shared/server narration text is CN; reconstruct a Latin
+			# sentence on the client from {actor, target, verb} so the
+			# log stays legible without a CJK system font (S-192). The
+			# verb tag itself is also translated CN -> Latin for the badge.
+			var cn_verb := String(e.get("verb", ""))
+			var latin_verb := String(_BattleLog.CN_TO_LATIN_VERB.get(cn_verb, cn_verb))
+			var actor_nick := _nick_for(String(e.get("actor", "")))
+			var target_nick := _nick_for(String(e.get("target", "")))
+			var line := _latin_narration(latin_verb, actor_nick, target_nick)
 			stage.battle_log.add_row(int(e.get("round", 0)), "narr",
-				String(e.get("text", "")), String(e.get("verb", "")))
+				line, latin_verb)
 		"GAME_OVER":
 			stage.battle_log.add_row(int(e.get("round", 0)), "end",
-				"游戏结束", "死")
+				"Game over", "DEAD")
 		_:
 			pass
+
+# Look up a Latin nickname for a player id by asking the bound GameStage.
+# Falls back to the raw id (or "?" if blank) so a missing/late player
+# never produces an empty string in the rail.
+func _nick_for(pid: String) -> String:
+	if pid.length() == 0:
+		return "?"
+	if stage != null and stage.has_method("nick_for_player"):
+		return String(stage.nick_for_player(pid))
+	return pid
+
+# Compose a Latin narration sentence for the right-rail log from a Latin
+# verb tag and the actor/target nicknames. Mirrors the shape of the
+# shared/narrative/lines.ts CN templates so a HN reader sees the same
+# beats (PULL pants, CHOP door, RESTORE pants).
+func _latin_narration(verb: String, actor_nick: String, target_nick: String) -> String:
+	match verb:
+		"PULL": return "%s pulled down %s's pants" % [actor_nick, target_nick]
+		"CHOP": return "%s chopped %s's door" % [actor_nick, target_nick]
+		"DODGE": return "%s dodged %s's swing" % [target_nick, actor_nick]
+		"DEAD": return "%s went down" % target_nick
+		"RESTORE": return "%s pulled their pants back up" % actor_nick
+		"TIE": return "Standoff - nobody moved"
+		_: return "%s -> %s" % [actor_nick, target_nick]

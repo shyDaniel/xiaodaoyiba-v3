@@ -34,7 +34,7 @@ offset_top = -22.0
 offset_right = 40.0
 offset_bottom = -2.0
 horizontal_alignment = 1
-text = "石头"
+text = "ROCK"
 theme_override_font_sizes/font_size = 16
 theme_override_colors/font_color = Color(0.92, 0.92, 0.92, 1)
 
@@ -56,7 +56,7 @@ offset_top = -22.0
 offset_right = 40.0
 offset_bottom = -2.0
 horizontal_alignment = 1
-text = "布"
+text = "PAPER"
 theme_override_font_sizes/font_size = 16
 theme_override_colors/font_color = Color(0.92, 0.92, 0.92, 1)
 
@@ -78,6 +78,6 @@ offset_top = -22.0
 offset_right = 40.0
 offset_bottom = -2.0
 horizontal_alignment = 1
-text = "剪刀"
+text = "SCISSORS"
 theme_override_font_sizes/font_size = 16
 theme_override_colors/font_color = Color(0.92, 0.92, 0.92, 1)

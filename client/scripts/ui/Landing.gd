@@ -1,8 +1,10 @@
 # Landing.gd — title screen, nickname entry, create-room / join-room.
 #
-# FINAL_GOAL §title: the game name is "小刀一把冲到你家". The landing must
-# advertise that name PROMINENTLY and visually echo the four nouns from
-# the rhyme: 小刀 / 家 / 裤衩 / 咔嚓. The hero illustration is procedural
+# FINAL_GOAL §title: the game's CN name is 小刀一把冲到你家 ("knife to your
+# door"). Visible UI strings are Latin so the live HTML5 build is legible
+# in any browser without a CJK system font (S-192 regression — without a
+# bundled CJK FontFile, the engine has no glyph data for these codepoints
+# and renders missing-glyph tofu). The hero illustration is procedural
 # (knife + house + character silhouette) so the project ships without
 # uploaded art per §G.
 
@@ -22,12 +24,14 @@ func _ready() -> void:
 	GameState.error_changed.connect(_on_error)
 	GameState.connection_status_changed.connect(_on_status)
 	# Default server URL hint visible in the UI.
-	_server_input.placeholder_text = "默认 ws://localhost:3000"
-	_status.text = "未连接 · 输入昵称后点 创建房间 或 加入房间"
+	_server_input.placeholder_text = "default ws://localhost:3000"
+	_status.text = "Disconnected - enter a nickname, then Create Room or Join Room"
 	Audio.cross_fade_bgm("lobby")
 
 func _gen_nick() -> String:
-	var pool := ["小白", "小李", "小张", "小陈", "小刘", "小赵"]
+	# Latin nick pool keeps every visible label legible in browsers without
+	# a CJK system font (Landing/Lobby/iso roof labels all render this).
+	var pool := ["Ming", "Hong", "Lei", "Mei", "Bao", "Jia"]
 	return pool[randi() % pool.size()] + str(randi() % 100)
 
 func _ensure_connected() -> bool:
@@ -40,13 +44,13 @@ func _ensure_connected() -> bool:
 		Net.connect_to_server()
 	else:
 		Net.connect_to_server(url)
-	_status.text = "正在连接服务器..."
+	_status.text = "Connecting to server..."
 	return false
 
 func _on_create() -> void:
 	var nick := _nick_input.text.strip_edges()
 	if nick.length() == 0:
-		_status.text = "请先填昵称"
+		_status.text = "Please enter a nickname first"
 		return
 	if not _ensure_connected():
 		await Net.connected
@@ -56,7 +60,7 @@ func _on_join() -> void:
 	var nick := _nick_input.text.strip_edges()
 	var code := _code_input.text.strip_edges().to_upper()
 	if nick.length() == 0 or code.length() == 0:
-		_status.text = "请先填昵称和房号"
+		_status.text = "Please enter a nickname and a room code"
 		return
 	if not _ensure_connected():
 		await Net.connected
@@ -64,10 +68,10 @@ func _on_join() -> void:
 
 func _on_error(msg: String) -> void:
 	if msg.length() > 0:
-		_status.text = "× " + msg
+		_status.text = "x " + msg
 
 func _on_status(c: bool) -> void:
 	if c:
-		_status.text = "已连接服务器"
+		_status.text = "Connected to server"
 	else:
-		_status.text = "未连接"
+		_status.text = "Disconnected"

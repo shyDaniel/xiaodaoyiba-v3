@@ -7,7 +7,9 @@
 #     pair so server falls back to the engine's auto-pick. Server-side
 #     budget is 9s (WINNER_CHOICE_BUDGET_MS); we cap UI hold at 5s so
 #     there's a 4s safety margin for in-flight roundtrips.
-#   - Three actions: 扒裤衩 (PULL_PANTS), 咔嚓 (CHOP), 穿好裤衩 (PULL_OWN_PANTS_UP).
+#   - Three actions: Pull pants (PULL_PANTS), CHOP, Pants up
+#     (PULL_OWN_PANTS_UP). Visible labels are Latin (S-192) so the live
+#     HTML5 build is legible without a CJK system font.
 
 extends Control
 
@@ -38,7 +40,7 @@ func open(prompt: Dictionary) -> void:
 	_allow_self = bool(prompt.get("canSelfRestore", false))
 	_selected_target = null
 	_selected_action = ""
-	_title.text = "你赢了！选个目标吧"
+	_title.text = "You won! Pick a target."
 	# Refresh target list.
 	for c in _target_list.get_children():
 		c.queue_free()
@@ -70,14 +72,14 @@ func _process(delta: float) -> void:
 	if not _open:
 		return
 	_hold_timer -= delta
-	_countdown.text = "%.1fs · 不选则自动" % max(_hold_timer, 0.0)
+	_countdown.text = "%.1fs - auto-pick if idle" % max(_hold_timer, 0.0)
 	if _hold_timer <= 0.0:
 		_open = false
 		winner_choice_made.emit(null, null)
 
 func _pick_target(pid: String) -> void:
 	_selected_target = pid
-	_title.text = "目标已选：%s · 选个动作" % pid
+	_title.text = "Target: %s - now pick an action" % pid
 
 func _pick_action(action: String) -> void:
 	_selected_action = action
@@ -93,7 +95,7 @@ func _pick_action(action: String) -> void:
 		var pid = str(t.get("id", "")) if typeof(t) == TYPE_DICTIONARY else str(t)
 		_selected_target = pid
 	if _selected_target == null:
-		_title.text = "先选个目标"
+		_title.text = "Pick a target first"
 		return
 	_open = false
 	winner_choice_made.emit(_selected_target, action)
