@@ -230,6 +230,25 @@ func _process(_delta: float) -> void:
 func _reconcile_label_stacks() -> void:
 	if _characters.is_empty() or _houses.is_empty():
 		return
+	# S-373 — filter DEAD characters out of the reconciler input. A
+	# dead character has had its NameLabel queue_free'd in
+	# Character.play_death(); passing it through the reconciler is
+	# both pointless (no label to reposition) and actively harmful
+	# (it would still get counted as an "occupant" of whatever house
+	# anchor it last camped at, pushing live visitors' stack indices
+	# up by one and re-triggering the iter-80 'Meic…' overlap on the
+	# survivor pair). The reconciler wants a snapshot of LIVE
+	# characters only.
+	var live_characters: Dictionary = {}
+	for cpid in _characters.keys():
+		var ch = _characters[cpid] as Character
+		if ch == null or not is_instance_valid(ch):
+			continue
+		if ch.has_method("is_dead") and ch.is_dead():
+			continue
+		live_characters[cpid] = ch
+	if live_characters.is_empty():
+		return
 	# House anchor sits at its base; the character anchor is at its
 	# feet, but characters spawn at house_pos + (0, 64) in
 	# _ensure_character. Comparing against (0, 64) means a resident
@@ -237,7 +256,7 @@ func _reconcile_label_stacks() -> void:
 	# and a visitor at target_char.pos + (-32, 0) lands at distance
 	# 32 — within ANCHOR_PROXIMITY_PX (32 + 0.5 epsilon).
 	var result: Dictionary = LabelStackReconciler.compute(
-		_characters, _houses, Vector2(0, 64), ANCHOR_PROXIMITY_PX)
+		live_characters, _houses, Vector2(0, 64), ANCHOR_PROXIMITY_PX)
 	var desired_idx: Dictionary = result.get("idx", {})
 	var desired_dim: Dictionary = result.get("dim", {})
 	# Mirror the freshly-computed occupants ledger into the legacy

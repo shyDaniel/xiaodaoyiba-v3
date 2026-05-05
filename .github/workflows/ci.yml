@@ -104,3 +104,11 @@ jobs:
       # (BattleLog / R1.PREP / PRP / "Ming preps" / "Pull Hong's pants").
       - name: godot landing-hero CJK substring contract (S-367)
         run: godot --headless --path client --script res://tests/render_landing_hero.gd
+
+      # S-373: when a character dies its NameLabel / ShameBadge /
+      # ThrowGlyph must be freed in the same tick so no orphan banner
+      # ever rides a 90°-rotated corpse onto the BattleLog (regression
+      # cause of screenshots/eval80/t13000.png → t27000.png "iron"
+      # banner clipping the right rail).
+      - name: godot orphan-banner-on-death (S-373)
+        run: godot --headless --path client --script res://tests/render_label_orphan_on_death.gd

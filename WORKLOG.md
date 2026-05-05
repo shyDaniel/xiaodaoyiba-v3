@@ -2202,3 +2202,50 @@ Verification:
   themed.
 - `render_landing.gd` → PASS, no regression.
 - `pnpm test` → 90 TS tests green (shared 79, server 11).
+
+## Iteration 81 — S-373: orphan 'iron' name banner on death
+
+Fixed orphan name banner that drifted/rotated 90° into the BattleLog
+after a character died. Root cause: `Character.play_death()` rotated the
+whole Character node 90° and faded `modulate.a` to 0.4, but never freed
+the child `NameLabel` / `ShameBadge` / `ThrowGlyph`, so the labels rode
+the corpse — still legible at α≈0.4, still wearing the visitor stylebox
+that was installed when iron last visited Ming97's house. The reconciler
+also kept assigning visitor stack indices to the corpse every frame.
+
+Files changed:
+- `client/scripts/characters/Character.gd` — `play_death()` now is
+  idempotent (early-return if already DEAD), synchronously hides and
+  `queue_free`s `_label`, `_shame_badge`, `_throw_glyph`, and strips the
+  visitor stylebox / outline overrides before freeing. Added `is_dead()`
+  helper. Added defensive `state == DEAD` + `is_instance_valid()` guards
+  in `set_label_stack_index`, `set_label_resident_dimmed`, `show_throw`,
+  `hide_throw`, `_refresh_shame_badge` so any late writes from the
+  reconciler or net layer no-op on a corpse.
+- `client/scripts/stage/GameStage.gd` — `_reconcile_label_stacks()` now
+  filters DEAD characters out of the dict before invoking
+  `LabelStackReconciler.compute()`, so corpses never get a stack index.
+- `client/tests/render_label_orphan_on_death.gd` — new regression test.
+  Spawns 1 resident + 2 visitors at a shared anchor, asserts pre-death
+  indices (counter=1, iron=2), calls `play_death()` on iron, then
+  asserts (a) iron's label/badge/throw-glyph are hidden + freed, (b) the
+  reconciler excludes the corpse so counter collapses to idx=1, (c)
+  late writes (`set_label_stack_index`, `show_throw`, etc.) on the
+  corpse no-op.
+- `.github/workflows/ci.yml` — added `godot --headless ...
+  res://tests/render_label_orphan_on_death.gd` step.
+
+Verification:
+- `godot --headless --path client --script res://tests/render_label_orphan_on_death.gd`
+  → PASS
+- All sibling label tests still PASS:
+  `render_label_collision_persist.gd`, `render_label_collision.gd`,
+  `render_label_collision_3actor.gd`,
+  `render_label_collision_pull_pants_distance.gd`.
+- `pnpm build:client` → 52 MB pck rebuilt OK.
+- `SHOTS=screenshots/eval81 NUM_BOTS=3 node scripts/validate-game-progression.mjs`
+  → ran end-to-end. eval81/t13000.png, t18000.png, t22000.png show every
+  visible name label flush above a live character body — NO sideways
+  "iron" banner clipping the right rail. t27000.png shows the game has
+  cycled back to landing/lobby with a clean state. The eval80 corpse-rail
+  artifact is gone.

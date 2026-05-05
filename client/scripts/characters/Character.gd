@@ -146,6 +146,9 @@ func set_state(s: int) -> void:
 	_refresh_visual()
 
 func show_throw(glyph: String) -> void:
+	# S-373 — DEAD characters have had _throw_glyph freed; skip.
+	if _throw_glyph == null or not is_instance_valid(_throw_glyph) or state == State.DEAD:
+		return
 	_throw_glyph.text = glyph
 	_throw_glyph.visible = true
 	_throw_glyph.modulate.a = 0.0
@@ -153,6 +156,8 @@ func show_throw(glyph: String) -> void:
 	tw.tween_property(_throw_glyph, "modulate:a", 1.0, 0.18)
 
 func hide_throw() -> void:
+	if _throw_glyph == null or not is_instance_valid(_throw_glyph):
+		return
 	if not _throw_glyph.visible:
 		return
 	var tw := create_tween()
@@ -219,7 +224,12 @@ func teleport_home() -> void:
 #     stagger this also helps a 3-or-4-actor pile-up read as a clear
 #     descending diagonal column.
 func set_label_stack_index(idx: int) -> void:
-	if _label == null:
+	# S-373 — DEAD characters have already had their NameLabel freed
+	# synchronously in play_death(). Skip every override write here so
+	# the per-frame reconciler can't resurrect a stylebox / outline
+	# tint on a corpse. is_instance_valid is the cheap defensive
+	# check against queue_free'd nodes that haven't been collected yet.
+	if _label == null or state == State.DEAD or not is_instance_valid(_label):
 		return
 	_label_stack_index = idx
 	var dy: float = LABEL_STACK_OFFSET * float(idx)
@@ -303,7 +313,9 @@ func set_label_visiting(is_visiting: bool) -> void:
 # strand the alpha at the wrong value (the same robustness fix as
 # set_label_stack_index above).
 func set_label_resident_dimmed(dimmed: bool) -> void:
-	if _label == null:
+	# S-373 — same dead-corpse short-circuit as set_label_stack_index
+	# above. play_death() freed _label; we must not write to it.
+	if _label == null or state == State.DEAD or not is_instance_valid(_label):
 		return
 	_label_resident_dimmed = dimmed
 	var col := _label.modulate
@@ -329,11 +341,51 @@ func play_attack_wiggle() -> void:
 	tw.tween_property(self, "scale", orig, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 func play_death() -> void:
+	# S-373 — idempotent: if we already processed a death for this
+	# character (e.g. server re-sends the DEAD snapshot after a
+	# round-end, or the spectator path replays the stage assignment),
+	# skip the destructive teardown so we don't re-tween a corpse
+	# that's already at rotation=90 and don't double-queue_free the
+	# child labels.
+	if state == State.DEAD:
+		return
 	state = State.DEAD
 	_refresh_visual()
+	# S-373 — kill EVERY text artifact attached to this character the
+	# instant it dies. Without this the NameLabel rides along through
+	# the 90° rotation tween below, ending up as a sideways "iron" /
+	# "Ming97" banner pinned to the corpse's last camped position
+	# (see screenshots/eval80/t13000.png → t27000.png orphan-banner
+	# regression). The brief's contract is: "when the character is
+	# removed (eliminated/dead), the banner is freed in the same
+	# tick" — so we hide and free the label payload synchronously,
+	# keep only the faded, rotated body sprite as the visible corpse.
+	if _label != null:
+		_label.visible = false
+		# Drop any visitor stylebox / outline overrides so a re-instantiation
+		# (or a future revive path) starts from the .tscn defaults. The
+		# stylebox in particular renders an opaque colored panel even when
+		# the inner glyph is empty — leaving it set on a hidden label is a
+		# latent regression vector if visibility is ever toggled back on.
+		_label.remove_theme_stylebox_override("normal")
+		_label.remove_theme_color_override("font_outline_color")
+		_label.remove_theme_constant_override("outline_size")
+		_label.queue_free()
+	if _shame_badge != null:
+		if _shame_badge_tween != null and _shame_badge_tween.is_valid():
+			_shame_badge_tween.kill()
+			_shame_badge_tween = null
+		_shame_badge.visible = false
+		_shame_badge.queue_free()
+	if _throw_glyph != null:
+		_throw_glyph.visible = false
+		_throw_glyph.queue_free()
 	var tw := create_tween().set_parallel(true)
 	tw.tween_property(self, "rotation_degrees", 90.0, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	tw.tween_property(self, "modulate:a", 0.4, 0.6)
+
+func is_dead() -> bool:
+	return state == State.DEAD
 
 func _swing_knife() -> void:
 	# 180° arc swing: starts cocked back (-1.6 rad), ends past target (1.0 rad).
@@ -415,7 +467,9 @@ func _refresh_visual() -> void:
 # pulse is already running is a no-op (we keep the existing tween
 # instead of restarting it every _refresh_visual tick).
 func _refresh_shame_badge(active: bool) -> void:
-	if _shame_badge == null:
+	# S-373 — DEAD characters have had _shame_badge freed in
+	# play_death(); skip every write so we don't touch a stale ref.
+	if _shame_badge == null or not is_instance_valid(_shame_badge) or state == State.DEAD:
 		return
 	if active:
 		if _shame_badge.visible and _shame_badge_tween != null and _shame_badge_tween.is_valid():
