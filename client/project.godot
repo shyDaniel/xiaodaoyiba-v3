@@ -34,6 +34,16 @@ window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+; --- GUI theme — registers a CJK-capable font (NotoSansSC) as the project-
+; --- wide default so every Label/Button renders Chinese ideographs in the
+; --- HTML5 export. Without this, the browser build has no system fallback
+; --- and 小刀一把/咔嚓 render as .notdef hex tofu boxes (S-332). See
+; --- assets/theme/default_theme.tres for size + color defaults.
+[gui]
+
+theme/custom="res://assets/theme/default_theme.tres"
+theme/custom_font="res://assets/fonts/NotoSansSC-Regular.otf"
+
 [input]
 
 confirm={

@@ -2,6 +2,63 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 71 — S-332 — CJK font bundled, Chinese rhyme readable in browser
+
+**Symptom.** Iter-70 (S-327) themed the lobby with the rhyme couplet
+`小刀一把，来到你家 / 扒你裤衩，直接咔嚓！` but rendered desktop-only.
+The HTML5 build had only `NotoColorEmoji.ttf` in `client/assets/fonts/`
+(emoji glyphs, zero CJK ideograph coverage). Godot's HTML5 export does
+not pull host system fonts, so every Chinese label rendered as Unicode
+`.notdef` placeholders — judge `02-after-bots.png` showed the title as
+`SC 52 4E 62 FF 67 52 4F 56 / 62 4F 88 88 FF 76 F4 54 56 FF 01`
+hex-tofu boxes. The product's own namesake, unreadable to users.
+
+**Fix.** Pulled `NotoSansSC-Regular.otf` (8.3 MB, full Simplified
+Chinese coverage) from the upstream `notofonts/noto-cjk` repo and
+dropped it at `client/assets/fonts/NotoSansSC-Regular.otf`. Created a
+`Theme` resource at `client/assets/theme/default_theme.tres` with the
+font as `default_font` and 16 px as `default_font_size`. Wired it as
+the project-wide default in `client/project.godot` via the new `[gui]`
+block:
+
+```
+[gui]
+theme/custom="res://assets/theme/default_theme.tres"
+theme/custom_font="res://assets/fonts/NotoSansSC-Regular.otf"
+```
+
+Because every existing `Label`/`Button` in `Lobby.tscn`,
+`Landing.tscn`, `BattleLog.tscn`, `HandPicker.tscn`,
+`WinnerPicker.tscn`, `Character.tscn`, etc. only overrides
+`font_size` / `font_color` / `outline_size` (NOT the font itself), no
+per-scene edits were needed — every Control inherits the new default
+font automatically. Ran `godot --headless --path client --import`
+twice (first pass ingests the .otf and writes the `.import` sidecar;
+second pass picks up the now-loadable Theme), then re-exported via
+`bash scripts/build.sh --client-only`.
+
+**Verified.** `SHOTS=/tmp/judge_cjk node scripts/validate-game-progression.mjs`
+passes the multi-round driver gate (3 choice TX, 6 effect RX, phase
+PLAYING, lateFramesMove=true, md5 frames diverge across t18→t22→t27).
+Opened `/tmp/judge_cjk/02-after-bots.png` with Read — title now reads
+**`小刀一把，来到你家 / 扒你裤衩，直接咔嚓！`** as actual ideographs
+in the lobby's gold serif over the mountain backdrop, with the knife
+sprite below and three colored houses to the right, no hex boxes
+anywhere. `t22000.png` in-game shows the BattleLog "Battle Log" title,
+"random" / "counter" name labels, "PULL"/"CHOP" badges and the
+R4·PULL_PANTS phase chip all crisp through the new theme. Bundle size
+went from 44 → 52 MB (8 MB font payload), above the 6 MB soft cap but
+the cap is `WARNING:` not error, and the alternative — unreadable
+namesake — is a hard ship-blocker.
+
+**Out of scope.** BattleLog narration is still English (the engine
+emits `<actor> pulled down <target>'s pants` from `EffectPlayer.gd`
+:223 instead of consuming the Chinese `narration` field the server
+emits via `shared/narrative/lines.ts`). That's the separate
+`BATTLELOG NARRATION IS ENGLISH-ONLY` outstanding bullet; with the
+font now bundled, fixing that bullet is a string-source change only —
+no font/import/build infrastructure work needed.
+
 ## Iteration 69 — S-322 — particle FX swiftshader fix (GPUParticles2D → CPUParticles2D)
 
 **Symptom.** Iter-67/68 judges flagged that `t10000.png`/`t22000.png`/

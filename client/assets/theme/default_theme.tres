@@ -1,0 +1,13 @@
+; Default project theme — registers NotoSansSC-Regular as the global
+; default font so every Label/Button/RichTextLabel in every scene
+; renders Chinese ideographs in the HTML5 browser build (S-332). The
+; old default (Godot's bundled fallback) has no CJK glyphs, which made
+; the lobby rhyme '小刀一把，来到你家 / 扒你裤衩，直接咔嚓！' render
+; as Unicode .notdef hex-tofu boxes for every browser user.
+[gd_resource type="Theme" load_steps=2 format=3]
+
+[ext_resource type="FontFile" path="res://assets/fonts/NotoSansSC-Regular.otf" id="1_cjk"]
+
+[resource]
+default_font = ExtResource("1_cjk")
+default_font_size = 16
