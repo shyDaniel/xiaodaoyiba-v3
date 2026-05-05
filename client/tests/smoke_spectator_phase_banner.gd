@@ -103,29 +103,33 @@ func _init() -> void:
 	await process_frame
 	await process_frame
 
-	# After the seed snapshot, the banner should land at "R2 · PREP"
+	# S-338 — banner is now CN ("第 N 回合 · 准备/收拾/…"). We assert on
+	# the round digit + the CN phase token instead of the legacy "R2".
+	# After the seed snapshot, the banner should land at "第 2 回合 · 准备"
 	# because the round rolled over from 0 → 2.
-	if phase_label != null and phase_label.text.find("R2") < 0:
-		failures.append("after R2 seed snapshot, banner=%s expected to contain R2" % phase_label.text)
+	if phase_label != null and phase_label.text.find("2") < 0:
+		failures.append("after R2 seed snapshot, banner=%s expected to contain '2'" % phase_label.text)
+	if phase_label != null and phase_label.text.find("准备") < 0:
+		failures.append("after R2 seed snapshot, banner=%s expected to contain '准备'" % phase_label.text)
 
-	# (2) Drive an IMPACT phase so the banner reads "R2 · IMPACT".
+	# (2) Drive an IMPACT phase so the banner reads "第 2 回合 · 收拾".
 	stage.on_phase_start("IMPACT", 2)
 	await process_frame
-	if phase_label != null and phase_label.text != "R2 · IMPACT":
-		failures.append("after on_phase_start(IMPACT,2), banner=%s expected R2 · IMPACT" % phase_label.text)
+	if phase_label != null and phase_label.text != "第 2 回合 · 收拾":
+		failures.append("after on_phase_start(IMPACT,2), banner=%s expected '第 2 回合 · 收拾'" % phase_label.text)
 
 	# (3) Spectator-mode round rollover: the server announces R3 via a
-	# snapshot. The banner must NOT stay on "R2 · IMPACT".
+	# snapshot. The banner must NOT stay on "第 2 回合 · 收拾".
 	var snap_r3 := snap_r2.duplicate(true)
 	snap_r3["round"] = 3
 	stage._on_snapshot(snap_r3)
 	await process_frame
 	await process_frame
-	if phase_label != null and phase_label.text.find("R3") < 0:
-		failures.append("after R3 snapshot rollover, banner=%s expected to contain R3 (NOT stuck on R2)"
+	if phase_label != null and phase_label.text.find("3") < 0:
+		failures.append("after R3 snapshot rollover, banner=%s expected to contain '3' (NOT stuck on R2)"
 			% phase_label.text)
-	if phase_label != null and phase_label.text.find("R2") >= 0:
-		failures.append("after R3 snapshot rollover, banner still mentions R2: %s" % phase_label.text)
+	if phase_label != null and phase_label.text.find("收拾") >= 0:
+		failures.append("after R3 snapshot rollover, banner still says '收拾' (R2 IMPACT): %s" % phase_label.text)
 
 	# (4) Pure-tie effect payload for R3 — feed it to the
 	# EffectPlayer (which tween_callback's into _dispatch). Build the
@@ -147,8 +151,11 @@ func _init() -> void:
 			"rpsReason": "all-equal",
 		})
 		await process_frame
-		if phase_label != null and phase_label.text.find("R3") < 0:
-			failures.append("after TIE_NARRATION R3, banner=%s expected to contain R3"
+		if phase_label != null and phase_label.text.find("3") < 0:
+			failures.append("after TIE_NARRATION R3, banner=%s expected to contain '3'"
+				% phase_label.text)
+		if phase_label != null and phase_label.text.find("平局") < 0:
+			failures.append("after TIE_NARRATION R3, banner=%s expected CN tie token '平局'"
 				% phase_label.text)
 
 	# (5) Spectator R4 — second consecutive round rollover via
@@ -157,8 +164,8 @@ func _init() -> void:
 	snap_r4["round"] = 4
 	stage._on_snapshot(snap_r4)
 	await process_frame
-	if phase_label != null and (phase_label.text.find("R4") < 0):
-		failures.append("after R4 snapshot rollover, banner=%s expected to contain R4"
+	if phase_label != null and (phase_label.text.find("4") < 0):
+		failures.append("after R4 snapshot rollover, banner=%s expected to contain '4'"
 			% phase_label.text)
 
 	if failures.is_empty():

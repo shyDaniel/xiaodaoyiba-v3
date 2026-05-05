@@ -1893,3 +1893,76 @@ admin card.
   --seed 42` → tie_rate=0.260 (<0.30), max winner 2/5=40%
   (<60%), PULL_OWN_PANTS_UP fires in R48 — sim gate green.
 - `godot --headless --path client/ --import` exit 0, no errors.
+
+## Iter-72 — S-338: in-game runtime localized to Chinese rhyme
+
+**Subtask:** BATTLELOG / PHASE-BANNER / VERB-BADGE / HANDPICKER
+LOCALIZATION. Iter-71's judge run showed the lobby reading
+'小刀一把，来到你家 / 扒你裤衩，直接咔嚓！' (CN rhyme couplet) but the
+moment a user starts a game the runtime jumps to English: BattleLog rows
+'Round 1 - fight!', 'Jia36 pulled down counter\'s pants', 'Standoff -
+nobody moved'; phase banner 'R3 · PULL_PANTS'; verb chips PULL/CHOP/TIE;
+HandPicker buttons ROCK/PAPER/SCISSORS. The product's centerpiece — its
+Chinese-rhyme identity — was contradicted the second a user entered the
+game. Server narration on the wire is fully Chinese
+(shared/narrative/lines.ts emits '一个箭步上前，扒下了…的裤衩',
+'手起刀落，一刀砍向…的家门', '齐了！所有人不约而同地出了同一招'); the
+client was just discarding it and rebuilding English from
+{actor, target, verb}.
+
+**Implementation:**
+- `client/scripts/stage/EffectPlayer.gd` — every English template line
+  replaced. ROUND_START phase tag '回合' / line '第 N 回合，开打！';
+  RPS_RESOLVED tag '拳' / line '%d 胜 / %d 败'; TIE_NARRATION reads
+  the server's `text` field directly so the rotating tie pool ('风掠过
+  门前，没人动手', '邻居探头："你们到底打不打？"', etc.) lands in the
+  rail verbatim with verb='平' for the chip; NARRATION reads the
+  server's `text` verbatim (no client-side English rebuild) and passes
+  the CN verb (扒/砍/闪/平/死/穿) straight to the BattleLog badge —
+  VERB_COLORS already had the CN keys; GAME_OVER tag '终' / line
+  '游戏结束' / verb '死'.
+- `_latin_narration` helper deleted; `_cn_fallback_narration` helper
+  added that mirrors the canonical CN templates from
+  shared/narrative/lines.ts so a server bug emitting NARRATION without
+  `text` still reads on-theme.
+- `client/scripts/stage/GameStage.gd` — `on_phase_start()` now routes
+  through `_phase_label_cn(phase)` which maps the canonical English
+  phase strings to rhyme verbs: REVEAL→亮拳, PREP→准备, RUSH→冲,
+  PULL_PANTS→扒裤衩, STRIKE→咔嚓, IMPACT→收拾, TIE→平局, START→开局.
+  Phase banner format swapped from 'R%d · %s' to '第 %d 回合 · %s'.
+  The snapshot-seed banner stamp at round-rollover (line 156) also
+  switches to '第 %d 回合 · 准备' so spectators see the CN banner
+  immediately.
+- `client/scripts/stage/GameStage.gd` — `show_tie_banner()` callers in
+  EffectPlayer.gd now pass '平' instead of 'TIE'; the existing tie-
+  banner Label and modulate fade are unchanged.
+- `client/scenes/ui/HandPicker.tscn` — RockLabel/PaperLabel/Scissors
+  Label `text` swapped from ROCK/PAPER/SCISSORS to 石头/布/剪刀.
+  Emoji glyphs ✊/✋/✌ on the button face stay (rock-paper-scissors is
+  a global gesture; the CN labels caption them).
+- `client/tests/smoke_spectator_phase_banner.gd` — assertions updated
+  to match the new CN banner format. After the R2-seed snapshot the
+  banner is asserted to contain '2' AND '准备'; the on_phase_start
+  IMPACT call asserts the exact text '第 2 回合 · 收拾'; the R3
+  rollover asserts '3' is present and '收拾' (R2 IMPACT) is gone;
+  TIE_NARRATION asserts '3' AND '平局'.
+
+**Verification:**
+- `pnpm test` → 90/90 green (shared 79 + server 11).
+- `pnpm sim --rounds 50 --seed 42` → tie_rate=0.260 (<0.30), max winner
+  3/7=43% (<60%), PULL_OWN_PANTS_UP fires R-various; narration on the
+  wire confirmed CN ('玩家手起刀落，一刀砍向counter的家门',
+  '齐了！所有人不约而同地出了同一招', etc.).
+- `godot --headless --path client/ --import` exit 0.
+- `godot --headless --path client/ --script tests/smoke_spectator_phase_banner.gd`
+  → PASS — the new CN banner format is exercised end-to-end across the
+  R2-seed → IMPACT → R3-rollover → TIE_NARRATION → R4-rollover sequence.
+- `godot --headless --path client/ --script tests/smoke_particle_fx.gd`
+  → PASS — the EffectPlayer dispatch table change to NARRATION /
+  TIE_NARRATION did not regress the PHASE_START → emitter wiring.
+- `godot --headless --path client/ --export-release "Web" build/index.html`
+  → fresh HTML5 bundle written to client/build/. .pck mtime now
+  newer than the modified .gd / .tscn sources.
+- The four mod points (BattleLog row text, phase banner, verb chip
+  glyph, HandPicker caption) are all the user-visible English
+  surfaces called out in iter-71's judge brief; every one is now CN.

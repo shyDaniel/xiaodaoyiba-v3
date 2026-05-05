@@ -153,7 +153,10 @@ func _on_snapshot(snap: Dictionary) -> void:
 		# moment the server announces beginRound(), so t27000.png ≠
 		# t18000.png whenever the snapshot has rolled over.
 		if phase_label != null:
-			phase_label.text = "R%d · PREP" % current_round
+			# S-338 — banner reads in CN to match the rhyme product surface.
+			# 'PREP' English placeholder used to ship as 'R3 · PREP' on the
+			# top-left chip, immediately contradicting FINAL_GOAL §C8.
+			phase_label.text = "第 %d 回合 · 准备" % current_round
 	elif phase == "LOBBY":
 		_last_round_seen = 0
 		if phase_label != null:
@@ -338,11 +341,30 @@ func show_tie_banner(text: String) -> void:
 	tw.tween_callback(func(): tie_banner.visible = false)
 
 func on_phase_start(phase: String, round_n: int) -> void:
-	phase_label.text = "R%d · %s" % [round_n, phase]
+	# S-338 — translate the canonical English phase string emitted by the
+	# server (REVEAL/PREP/RUSH/PULL_PANTS/STRIKE/IMPACT plus the client-
+	# synthesised START/TIE seeds) to a CN label. The rhyme is "小刀一把
+	# 来到你家，扒你裤衩，直接咔嚓" so each phase maps to its rhyme verb:
+	#   REVEAL→亮拳, PREP→准备, RUSH→冲, PULL_PANTS→扒裤衩,
+	#   STRIKE→咔嚓, IMPACT→收拾, TIE→平局, START→开局.
+	var cn := _phase_label_cn(phase)
+	phase_label.text = "第 %d 回合 · %s" % [round_n, cn]
 	# Cinematic zoom on PULL_PANTS (start) per §C2.
 	# (Actor-target focus point gets set in play_action.)
 	if phase == "STRIKE":
 		Audio.play_sfx("chop")
+
+func _phase_label_cn(phase: String) -> String:
+	match phase:
+		"REVEAL": return "亮拳"
+		"PREP": return "准备"
+		"RUSH": return "冲"
+		"PULL_PANTS": return "扒裤衩"
+		"STRIKE": return "咔嚓"
+		"IMPACT": return "收拾"
+		"TIE": return "平局"
+		"START": return "开局"
+		_: return phase
 
 func play_action(actor: String, target: String, kind: String) -> void:
 	if not _characters.has(actor) or not _characters.has(target):
