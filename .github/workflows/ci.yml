@@ -1,0 +1,80 @@
+# Full CI gate (FINAL_GOAL §E5).
+#
+# On every push and PR, this workflow:
+#   1. installs the pnpm workspace,
+#   2. runs the TypeScript test suite (vitest),
+#   3. runs the canonical seed=42 strict headless sim,
+#   4. installs Godot 4.3-stable (Linux headless-capable build) and runs
+#      `godot --headless --path client --import` to verify the project
+#      imports cleanly with zero errors.
+#
+# All four steps must exit 0 for the job to pass. The narrow
+# codegen-drift gate lives in codegen-drift.yml and runs in parallel.
+
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: pnpm test + sim + godot import
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: pnpm test
+        run: pnpm test
+
+      - name: pnpm sim (seed=42 strict canonical)
+        run: |
+          pnpm sim \
+            --players 4 \
+            --bots counter,random,iron,mirror \
+            --winner-strategy random-target+random-action \
+            --rounds 50 \
+            --seed 42 \
+            --strict
+
+      # Godot 4.3-stable Linux x86_64 binary supports --headless natively
+      # in Godot 4.x; no separate "headless build" is required.
+      # Pinning the GitHub release URL keeps CI hermetic.
+      - name: Install Godot 4.3-stable
+        run: |
+          set -euo pipefail
+          GODOT_VERSION="4.3-stable"
+          GODOT_ZIP="Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          GODOT_URL="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/${GODOT_ZIP}"
+          curl --fail --location --silent --show-error \
+            --output "/tmp/${GODOT_ZIP}" "${GODOT_URL}"
+          unzip -q "/tmp/${GODOT_ZIP}" -d /tmp/godot
+          sudo install -m 0755 \
+            "/tmp/godot/Godot_v${GODOT_VERSION}_linux.x86_64" \
+            /usr/local/bin/godot
+          godot --headless --version
+
+      - name: godot --headless --path client --import
+        run: godot --headless --path client --import

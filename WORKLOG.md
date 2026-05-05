@@ -2,6 +2,48 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 11 — S-139 — §E5 full CI workflow
+
+**Bug:** `.github/workflows/` contained only the narrow `codegen-drift.yml`
+gate from S-129. FINAL_GOAL §E5 demands a per-push CI job that installs
+Godot 4.3-stable and runs `pnpm install && pnpm test && pnpm sim
+--players 4 --bots counter,random,iron,mirror --winner-strategy
+random-target+random-action --rounds 50 --seed 42 --strict && godot
+--headless --path client --import`. None of those four steps were
+gating PRs — drift in tests, RPS distributions, or the Godot project
+import would land silently.
+
+**Fix:** Added `.github/workflows/ci.yml` (job name `ci`) running the
+exact four-step pipeline from §E5 on every push and PR:
+
+1. `pnpm install --frozen-lockfile` (pnpm 9 + Node 20 + lockfile cache).
+2. `pnpm test` (vitest, currently 90 tests across `shared/` + `server/`).
+3. `pnpm sim` with the canonical S-129 args + `--strict` (seed=42, 50
+   rounds, 4 players, mixed bot strategies, random-target+random-action
+   winner picker — exercises the §A3 `PULL_OWN_PANTS_UP` agency code
+   path and the §A2 distribution budget).
+4. Hermetic Godot 4.3-stable install via `curl` of the pinned GitHub
+   release tarball (`Godot_v4.3-stable_linux.x86_64.zip`) followed by
+   `godot --headless --path client --import` (Godot 4.x's standard
+   Linux binary supports `--headless` natively, so no separate
+   "headless build" is needed). `concurrency.cancel-in-progress`
+   prevents stacked runs from a single branch.
+
+**Local verification before commit:**
+- `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml'))"`
+  → ok.
+- `pnpm test` → 90/90 green (79 shared + 11 server) in ~0.7s.
+- `pnpm sim ... --strict` → exit 0, tie_rate 0.260, no winner > 0.40,
+  `PULL_OWN_PANTS_UP` fires (game 6 round 2), §A2/§A3 budgets clean.
+- The Godot import step is exercised in CI itself; locally `godot
+  --headless --path client --import` is the same invocation the prior
+  iterations have used to validate the project tree, and `pnpm
+  godot:import` already wraps it.
+
+The narrow `codegen-drift.yml` from S-129 stays — it runs in parallel
+on the same triggers and remains the single source of truth for §A4
+drift detection.
+
 ## Iteration 10 — S-129 — §A4 ship `pnpm codegen:timing` + drift CI
 
 **Bug:** `pnpm codegen:timing` exited `ERR_MODULE_NOT_FOUND` because the
