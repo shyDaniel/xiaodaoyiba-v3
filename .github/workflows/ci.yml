@@ -112,3 +112,15 @@ jobs:
       # banner clipping the right rail).
       - name: godot orphan-banner-on-death (S-373)
         run: godot --headless --path client --script res://tests/render_label_orphan_on_death.gd
+
+      # S-409: scripts/serve-html5.sh must refuse to start when any
+      # client/scripts/**/*.gd, client/scenes/**/*.tscn,
+      # client/assets/**/*.png, project.godot, or export_presets.cfg
+      # mtime > client/build/index.pck. The ALLOW_STALE escape hatch
+      # has been removed — iter-85 silently served pre-S-401 wallpaper
+      # houses for a full iteration because of it. Production usage
+      # auto-triggers `pnpm build:client`; this test runs with
+      # NO_AUTO_BUILD=1 to assert the refusal path without invoking
+      # Godot in the unit test.
+      - name: serve-html5 stale-build refusal (S-409)
+        run: node scripts/test-serve-stale-check.mjs

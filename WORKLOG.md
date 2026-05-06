@@ -2,6 +2,75 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 86 — S-409 — STALE BUILD: fail loud when sources outpace client/build/index.pck
+
+**Symptom.** Iter-85 (S-401) shipped 16 redrawn house composite PNGs +
+character composites + a fixture script update — and got a glowing
+docs/screenshots/action.png — but the live HTML5 build was never
+re-exported. `client/build/index.pck` was stamped 15:59 while the new
+composites stamped 16:47. The previous serve-html5.sh stale check
+only watched `client/scenes/**/*.tscn`, `client/scripts/**/*.gd`,
+`client/project.godot`, and `*.import` — it did not include
+`client/assets/**/*.png`. So 53 newer asset files passed silently and
+`pnpm serve` happily booted the 15:59 bundle. `ALLOW_STALE=1` made it
+worse: even when the narrower check tripped, the user could mute it.
+Iter-85 evaluation drove the served bundle and saw red-brick wallpaper
+houses, ie the pre-S-401 product.
+
+**Fix.** `scripts/serve-html5.sh`:
+
+- Widened the stale-detection scan to `client/scripts/**/*.gd`,
+  `client/scenes/**/*.tscn`, `client/assets/**/*.{png,jpg,jpeg,svg,
+  import,wav,ogg}`, `client/project.godot`, and
+  `client/export_presets.cfg`. Any of these newer than
+  `client/build/index.pck` is "stale".
+- Removed the `ALLOW_STALE=1` escape hatch entirely. There is no path
+  through the script that serves a stale bundle silently anymore.
+- On stale, the script now AUTO-INVOKES `pnpm build:client` to refresh
+  the HTML5 export, then re-checks. If the rebuild fails or stale
+  persists (e.g. the export filter dropped a source), it exits
+  non-zero (codes 2/3/4 with descriptive stderr).
+- Added a `NO_AUTO_BUILD=1` env that forces refusal-without-rebuild
+  for CI / judge-runner contexts that don't have Godot installed.
+- Added `XDYB_REPO_ROOT` env so unit tests can pin the script's
+  `find -newer` working directory at the real repo without copying
+  the script into the repo tree.
+
+`scripts/build.sh` mirror: the informational "sources newer than
+current index.pck" log line now also scans `client/assets/**` so
+operators see the asset files driving the rebuild.
+
+**Test.** New `scripts/test-serve-stale-check.mjs` (12 assertions
+across 5 cases) exercises the script without invoking Godot:
+
+1. Composite PNG newer than index.pck → exits 2, stale-list names
+   the asset.
+2. `ALLOW_STALE=1` does not bypass the refusal.
+3. Pck newer than asset → script proceeds to start the static server.
+4. Missing index.pck under `NO_AUTO_BUILD=1` → exits 2.
+5. `client/project.godot` newer than pck → exits 2, stale-list names
+   project.godot.
+
+`pnpm test:serve-stale` → 12/12 ✓. Wired into
+`.github/workflows/ci.yml` as the "serve-html5 stale-build refusal
+(S-409)" step.
+
+**Verification.**
+- `pnpm test` → 90/90 TS tests green (shared 79, server 11).
+- `pnpm test:serve-stale` → 12/12 ✓.
+- Real-world repro: `NO_AUTO_BUILD=1 bash scripts/serve-html5.sh`
+  against the current 15:59 index.pck exits 2 and prints 25 stale
+  paths including `client/scripts/globals/SpriteAtlas.gd`,
+  `client/assets/sprites/3rd-party/composites/house_v0_d0.png`, etc
+  — the exact files iter-85 changed but never re-exported. The
+  refusal stops the server from booting the stale bundle.
+
+This unblocks the next downstream subtask (LIVE HOUSE VARIATION
+UNWIRED — wire `House.gd` to call `SpriteAtlas.texture_for_house`):
+once that ships, `pnpm serve` will now refuse to start until
+`pnpm build:client` re-exports the bundle, so the wired-up code will
+actually reach a player's browser.
+
 ## Iteration 85 — S-401 — fix VIRAL AESTHETIC GATE: house wallpaper grid → coherent single-dwelling silhouettes
 
 **Symptom.** Iter-84 fixed the empty-iso-stage regression so the

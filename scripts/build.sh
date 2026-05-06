@@ -41,12 +41,21 @@ if [[ "$DO_CLIENT" -eq 1 ]]; then
     # table. Idempotent and deterministic (mulberry32 seeded by name).
     echo "[build] generating audio assets..."
     node scripts/codegen-audio.mjs
-    # S-362: surface which sources triggered the rebuild so it's obvious in
-    # CI/dev logs that localization edits actually made it into index.pck.
+    # S-362 / S-409: surface which sources triggered the rebuild so it's
+    # obvious in CI/dev logs that source edits actually made it into
+    # index.pck. S-409 widens the watch set to include client/assets/**
+    # (PNG composites, .import files, audio) — iter-85 shipped 16 new
+    # house composite PNGs that never reached the served bundle because
+    # the older S-362 check ignored client/assets/.
     if [[ -f client/build/index.pck ]]; then
-      STALE_LIST=$(find client/scenes client/scripts client/project.godot \
-        \( -name '*.tscn' -o -name '*.gd' -o -name '*.import' -o -name 'project.godot' \) \
-        -newer client/build/index.pck 2>/dev/null | head -10 || true)
+      STALE_LIST=$(find \
+          client/scenes client/scripts client/assets \
+          client/project.godot client/export_presets.cfg \
+          \( -name '*.tscn' -o -name '*.gd' \
+             -o -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.svg' \
+             -o -name '*.import' -o -name '*.wav' -o -name '*.ogg' \
+             -o -name 'project.godot' -o -name 'export_presets.cfg' \) \
+          -newer client/build/index.pck 2>/dev/null | head -15 || true)
       if [[ -n "${STALE_LIST:-}" ]]; then
         echo "[build] sources newer than current index.pck (will be re-exported):"
         echo "${STALE_LIST}" | sed 's/^/  /'

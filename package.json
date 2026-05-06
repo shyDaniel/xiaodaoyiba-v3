@@ -18,6 +18,7 @@
     "sim": "pnpm --filter @xdyb/server sim",
     "serve": "bash scripts/serve-html5.sh",
     "validate:browser": "bash scripts/validate-browser.sh",
+    "test:serve-stale": "node scripts/test-serve-stale-check.mjs",
     "godot:import": "godot --headless --path client --import",
     "codegen:timing": "pnpm --filter @xdyb/shared run codegen:timing",
     "codegen:audio": "node scripts/codegen-audio.mjs"
