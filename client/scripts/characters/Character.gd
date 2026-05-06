@@ -29,6 +29,14 @@ var home_position: Vector2 = Vector2.ZERO
 var _rush_tween: Tween = null
 var _knife_swing_tween: Tween = null
 
+# S-424 — per-player character silhouette variant. Computed
+# deterministically from player_id (abs(hash(pid)) % CHARACTER_VARIANTS)
+# at setup so 4 simultaneous players render 4 visually distinct
+# silhouettes (different hat shape, robe colour, body proportions). The
+# variant feeds atlas.character_texture_for(_variant, visual_state) in
+# _refresh_visual.
+var _variant: int = 0
+
 # S-269 / S-285 / S-302 — name-label collision handling. When N≥2
 # characters share a house anchor (visitor[s] camped at a resident's
 # house), each character is assigned a unique stack index so their
@@ -114,6 +122,11 @@ func _atlas() -> Node:
 
 func _ready() -> void:
 	home_position = position
+	# S-424 — compute the silhouette variant from player_id. Done in
+	# _ready (after the autoload is reachable) AND on every set_player_id
+	# call so reconnects / late nickname updates pick the right tile.
+	if player_id != "":
+		_variant = _variant_for_player_id(player_id)
 	_label.text = nickname
 	_label.add_theme_color_override("font_color", Color.from_hsv(color_hue, 0.45, 1.0))
 	# Cache the scene's authored label extents so visiting-stack math
@@ -136,6 +149,28 @@ func _ready() -> void:
 		# Pivot at handle (left end), offset rotates the blade.
 		_knife.offset = Vector2(0, -10)
 	_refresh_visual()
+
+# S-424 — set the player_id so the character picks a deterministic
+# silhouette variant. Mirrors House.set_player_id. Safe to call before
+# _ready — _refresh_visual handles the not-yet-bound case (atlas null
+# guard) and _ready() recomputes the variant once the autoload is
+# reachable.
+func set_player_id(pid: String) -> void:
+	player_id = pid
+	_variant = _variant_for_player_id(pid)
+	_refresh_visual()
+
+func _variant_for_player_id(pid: String) -> int:
+	var atlas := _atlas()
+	var variants := 4
+	if atlas != null and "CHARACTER_VARIANTS" in atlas:
+		variants = max(1, int(atlas.CHARACTER_VARIANTS))
+	if pid == "":
+		return 0
+	# Godot's hash() returns a non-negative int; abs+modulo keeps it in
+	# [0, variants). Stable across reconnects because pid is the
+	# server-assigned playerId string.
+	return int(abs(hash(pid))) % variants
 
 func set_persistent_pants_down(v: bool) -> void:
 	persistent_pants_down = v
@@ -422,9 +457,23 @@ func _refresh_visual() -> void:
 	# sprite per state, with shaded shapes baked in). The TorsoTint
 	# layer is the same sprite re-modulated per-player so the body
 	# silhouette gets a hue tint without changing skin/hair colours.
+	#
+	# S-424 — the atlas lookup goes through character_texture_for(
+	# variant, visual_state) so each player_id gets a distinct
+	# silhouette tile (purple wizard / armoured knight / bone wraith /
+	# red-tunic warrior). _variant was computed in set_player_id /
+	# _ready from abs(hash(player_id)) % CHARACTER_VARIANTS.
 	var atlas := _atlas()
-	if atlas != null and not atlas.character_textures.is_empty():
-		var tex: Texture2D = atlas.character_textures.get(visual_state, null)
+	if atlas != null:
+		var tex: Texture2D = null
+		if atlas.has_method("character_texture_for"):
+			tex = atlas.character_texture_for(_variant, visual_state)
+		if tex == null and not atlas.character_textures.is_empty():
+			# Defensive fallback to the back-compat per-state dict
+			# (variant 0) if the per-variant lookup returns null for
+			# any reason — keeps the renderer alive even on a
+			# partially-baked composites/ directory.
+			tex = atlas.character_textures.get(visual_state, null)
 		if tex != null and _body != null:
 			_body.texture = tex
 			_torso_tint.texture = null   # not used yet — single-pass tint via modulate

@@ -319,6 +319,11 @@ func _ensure_character(pid: String, house_pos: Vector2, player: Dictionary, i: i
 		return
 	var char_scene := preload("res://scenes/characters/Character.tscn").instantiate()
 	char_scene.player_id = pid
+	# S-424: explicitly call set_player_id so the per-player silhouette
+	# variant is computed before add_child fires _ready. Mirrors the
+	# House.set_player_id call at _ensure_house above.
+	if char_scene.has_method("set_player_id"):
+		char_scene.set_player_id(pid)
 	char_scene.nickname = String(player.get("nickname", "?"))
 	char_scene.color_hue = float(i) / float(max(n, 1))
 	# Stand the character in front of (below) the house's iso anchor so

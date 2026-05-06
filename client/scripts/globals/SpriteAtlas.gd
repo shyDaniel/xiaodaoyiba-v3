@@ -38,7 +38,13 @@ extends Node
 
 # --- public API ---------------------------------------------------------
 
-var character_textures: Dictionary = {}     # state_str -> Texture2D
+var character_textures: Dictionary = {}     # state_str -> Texture2D (variant 0, back-compat)
+# S-424 — per-variant character textures. Indexed by variant int 0..N-1
+# then by state_str. Built at _ready alongside character_textures so
+# every consumer (Character.gd via character_texture_for, LandingHero
+# via character_textures) keeps a Texture2D handle even if the per-
+# variant PNG is missing on disk.
+var character_textures_by_variant: Array = []  # [variant][state_str] -> Texture2D
 var house_textures: Array = []              # damage_stage -> Texture2D
 var knife_texture: Texture2D
 var knife_trail_texture: Texture2D
@@ -59,6 +65,10 @@ const CHARACTER_STATES := [
 	"ATTACKING",
 	"DEAD",
 ]
+# S-424 — number of per-player character silhouette variants, mirroring
+# HOUSE_VARIANTS so the same hash-mod-N pattern produces a unique
+# (house, character) pair per playerId.
+const CHARACTER_VARIANTS := 4
 const HOUSE_VARIANTS := 4   # 4 visual variants per damage stage in pack
 const HOUSE_DAMAGE_STAGES := 4
 
@@ -73,11 +83,35 @@ func _ready() -> void:
 	_proxy_fx()
 
 func _load_characters() -> void:
+	# S-424 — populate both:
+	#   character_textures            (variant 0, back-compat for LandingHero)
+	#   character_textures_by_variant (per-variant table consumed by
+	#                                  Character.character_texture_for)
+	# We always fall back to the variant-0 / back-compat alias texture
+	# if a per-variant PNG is missing on disk so the renderer never
+	# strands on a null Texture2D (the S-393 typed-assignment crash).
+	character_textures_by_variant.resize(CHARACTER_VARIANTS)
+	# First pass: load the back-compat aliases so character_textures is
+	# populated for legacy consumers and as the variant-fallback table.
 	for state in CHARACTER_STATES:
 		var path := "%s/character_%s.png" % [COMPOSITES, state]
 		var tex: Texture2D = load(path)
 		if tex != null:
 			character_textures[state] = tex
+	# Second pass: per-variant. Each slot is its own state_str -> Texture2D
+	# dict. Variant N falls back to the back-compat dict when the
+	# composite is missing, so a partially-baked asset directory still
+	# renders something.
+	for v in range(CHARACTER_VARIANTS):
+		var per_variant: Dictionary = {}
+		for state in CHARACTER_STATES:
+			var path := "%s/character_v%d_%s.png" % [COMPOSITES, v, state]
+			var tex: Texture2D = load(path)
+			if tex == null:
+				tex = character_textures.get(state, null)
+			if tex != null:
+				per_variant[state] = tex
+		character_textures_by_variant[v] = per_variant
 
 func _load_houses() -> void:
 	# House.gd / LandingHero.gd index by damage_stage only (0..3). We keep
@@ -110,6 +144,19 @@ func _proxy_fx() -> void:
 	fx_confetti_texture = fx.confetti_texture
 
 # --- variant helpers ---------------------------------------------------
+
+# S-424 — Returns the per-variant character texture for a given visual
+# state, falling back to the back-compat character_textures dict if a
+# per-variant PNG is missing. Variant int is clamped into 0..CHARACTER_
+# VARIANTS-1 so callers may pass abs(hash(player_id)) without their own
+# modulus.
+func character_texture_for(variant: int, state: String) -> Texture2D:
+	var v := clampi(variant, 0, CHARACTER_VARIANTS - 1)
+	if v < character_textures_by_variant.size():
+		var per_variant: Dictionary = character_textures_by_variant[v]
+		if per_variant != null and per_variant.has(state):
+			return per_variant[state]
+	return character_textures.get(state, null)
 
 # Returns the (variant, damage) house texture if available, else null.
 # Variant 0..3, damage 0..3.

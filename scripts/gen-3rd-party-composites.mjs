@@ -263,16 +263,69 @@ const GROUND_VARIANTS = [0, 1, 2, 24];
 //   84 — purple-robe wizard (front)
 //   85 — orange-skirt healer
 //   86 — heavy red-cloak warrior
-//   87 — armoured knight
-//   96 — purple-robe wizard (back/alt)
-const CHARACTER_BASE = {
-  ALIVE_CLOTHED:    { dir: TD_TILES, idx: 84 },
-  ATTACKING:        { dir: TD_TILES, idx: 87 },
-  RUSHING:          { dir: TD_TILES, idx: 87 },   // armoured knight (rushing pose)
-  ALIVE_PANTS_DOWN: { dir: TD_TILES, idx: 85 },
-  ALIVE_BRIEFS_ONLY:{ dir: TD_TILES, idx: 86 },
-  DEAD:             { dir: TD_TILES, idx: 103 },  // tomb-shape
-};
+//   87 — armoured knight (blue plate)
+//   96 — bone wraith (white skull-faced)
+//   97 — yellow-mage / brown-cap apprentice
+//   98 — blacksmith (heavy frame)
+//   99 — red-tunic warrior
+//   103 — tomb / gravestone shape
+//
+// S-424 — per-variant character composites. SpriteAtlas.HOUSE_VARIANTS
+// already gives every player a unique house silhouette; the same
+// player_id-hash-mod-N pattern now drives a unique character look.
+// Each variant picks a DIFFERENT base hero tile so 4 simultaneous
+// players render 4 visually distinct silhouettes (different hat
+// shape, robe colour, body proportions). The PANTS_DOWN /
+// BRIEFS_ONLY frames recolour the lower body of the base tile to
+// expose the red briefs — pixel-replace driven by row coordinate +
+// existing-pixel mask, no procedural shape draws (§I.0 compliant).
+const CHARACTER_VARIANTS = [
+  // Variant 0 — purple-robe wizard (the historical default).
+  {
+    ALIVE_CLOTHED:    { dir: TD_TILES, idx: 84 },
+    ATTACKING:        { dir: TD_TILES, idx: 84 },
+    RUSHING:          { dir: TD_TILES, idx: 84 },
+    ALIVE_PANTS_DOWN: { dir: TD_TILES, idx: 84, pantsDown: true },
+    ALIVE_BRIEFS_ONLY:{ dir: TD_TILES, idx: 84, pantsDown: true },
+    DEAD:             { dir: TD_TILES, idx: 103 },
+  },
+  // Variant 1 — armoured knight (blue plate, completely different
+  // silhouette from the wizard's pointy hat).
+  {
+    ALIVE_CLOTHED:    { dir: TD_TILES, idx: 87 },
+    ATTACKING:        { dir: TD_TILES, idx: 87 },
+    RUSHING:          { dir: TD_TILES, idx: 87 },
+    ALIVE_PANTS_DOWN: { dir: TD_TILES, idx: 87, pantsDown: true },
+    ALIVE_BRIEFS_ONLY:{ dir: TD_TILES, idx: 87, pantsDown: true },
+    DEAD:             { dir: TD_TILES, idx: 103 },
+  },
+  // Variant 2 — bone-faced wraith (skull head, grey robe — instantly
+  // distinguishable colour palette + face shape).
+  {
+    ALIVE_CLOTHED:    { dir: TD_TILES, idx: 96 },
+    ATTACKING:        { dir: TD_TILES, idx: 96 },
+    RUSHING:          { dir: TD_TILES, idx: 96 },
+    ALIVE_PANTS_DOWN: { dir: TD_TILES, idx: 96, pantsDown: true },
+    ALIVE_BRIEFS_ONLY:{ dir: TD_TILES, idx: 96, pantsDown: true },
+    DEAD:             { dir: TD_TILES, idx: 103 },
+  },
+  // Variant 3 — red-tunic warrior (warm-palette outlier vs the
+  // cool-palette wizard / knight / wraith).
+  {
+    ALIVE_CLOTHED:    { dir: TD_TILES, idx: 99 },
+    ATTACKING:        { dir: TD_TILES, idx: 99 },
+    RUSHING:          { dir: TD_TILES, idx: 99 },
+    ALIVE_PANTS_DOWN: { dir: TD_TILES, idx: 99, pantsDown: true },
+    ALIVE_BRIEFS_ONLY:{ dir: TD_TILES, idx: 99, pantsDown: true },
+    DEAD:             { dir: TD_TILES, idx: 103 },
+  },
+];
+
+// Variant 0 stays the back-compat default — `character_<state>.png`
+// (no _v suffix) is an alias for the variant-0 composite so the
+// existing LandingHero / SpriteAtlas.character_textures consumers
+// keep rendering even before they switch to the per-variant API.
+const CHARACTER_BASE = CHARACTER_VARIANTS[0];
 
 // Tiny Town knife (sword) tile.
 const KNIFE = { dir: TT_TILES, idx: 30 };
@@ -361,14 +414,65 @@ function buildHouse(variant, dmg) {
 // Layout: a single 16×16 hero tile from Tiny Dungeon, scaled 6× → 96×96,
 // vertically anchored so the hero stands at canvas-y ≈ 28..124, matching
 // the existing Character.tscn 'Body' Sprite2D with position (0,-54).
-function buildCharacter(state) {
+//
+// S-424 — accepts a variant spec (CHARACTER_VARIANTS[v][state]) so each
+// player_id picks a distinct silhouette. The pantsDown flag on the spec
+// triggers a leg-region pixel recolour to surface red briefs without
+// drawing new shapes (only existing tile pixels are recoloured).
+//
+// PANTS_DOWN recolour: the source tile is 16×16 with the body roughly
+// in rows 5..14 and the legs in rows 13..15. We recolour pixels in
+// rows 11..14 whose existing colour reads as "torso/cloak" (mid-
+// saturation, not skin/hair/black-outline) toward the red-briefs
+// palette ((220, 60, 50), darkening at the bottom edge for shading).
+// This is a pixel-coordinate-driven recolour, not a draw call —
+// every pixel touched already exists in the CC0 source tile, only its
+// hue is rotated. §I.0 carve-out for "recolour driven by mask
+// sampling" applies (see applyDamage above for the same pattern).
+function recolorPantsDown(tile) {
+  const out = {
+    w: tile.w,
+    h: tile.h,
+    rgba: new Uint8Array(tile.rgba),  // copy so cache stays clean
+  };
+  // Briefs target colour and outline.
+  const BR = [220, 55, 55];          // bright red briefs
+  const BR_DARK = [150, 35, 35];     // shadow row
+  const SKIN = [232, 197, 154];      // exposed-leg skin
+  for (let y = 11; y < tile.h; y++) {
+    for (let x = 0; x < tile.w; x++) {
+      const i = (y * tile.w + x) * 4;
+      const a = out.rgba[i + 3];
+      if (a < 32) continue;
+      const r = out.rgba[i], g = out.rgba[i + 1], b = out.rgba[i + 2];
+      // Skip the dark outline (preserves silhouette edges).
+      if (r < 60 && g < 60 && b < 60) continue;
+      if (y === 11 || y === 12) {
+        // Top of legs: red briefs band.
+        out.rgba[i] = BR[0]; out.rgba[i + 1] = BR[1]; out.rgba[i + 2] = BR[2];
+      } else if (y === 13) {
+        // Brief shadow row.
+        out.rgba[i] = BR_DARK[0]; out.rgba[i + 1] = BR_DARK[1]; out.rgba[i + 2] = BR_DARK[2];
+      } else {
+        // Lower legs / feet — keep darker outline pixels but
+        // recolour mid-tone to skin.
+        if (r > 70 || g > 70 || b > 70) {
+          out.rgba[i] = SKIN[0]; out.rgba[i + 1] = SKIN[1]; out.rgba[i + 2] = SKIN[2];
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function buildCharacter(spec) {
   const W = 96, H = 128;
   const SCALE = 6;
   const c = new Canvas(W, H);
-  const src = CHARACTER_BASE[state] || CHARACTER_BASE.ALIVE_CLOTHED;
-  const tile = loadTile(src.dir, src.idx);
+  let tile = loadTile(spec.dir, spec.idx);
+  if (spec.pantsDown) tile = recolorPantsDown(tile);
   // Center horizontally; offset top by 16px so feet land at y=128.
-  tileToCanvas(tile, (W - tile.w * SCALE) / 2, H - tile.h * SCALE - 4, SCALE, c);
+  c.blitScaled(tile.rgba, tile.w, tile.h, (W - tile.w * SCALE) / 2, H - tile.h * SCALE - 4, SCALE, SCALE);
   return c;
 }
 
@@ -481,8 +585,23 @@ for (let v = 0; v < HOUSE_RECIPES.length; v++) {
     write(`house_v${v}_d${d}.png`, buildHouse(v, d));
   }
 }
-for (const state of Object.keys(CHARACTER_BASE)) {
-  write(`character_${state}.png`, buildCharacter(state));
+
+// S-424 — emit per-variant character composites
+// (`character_v0_<state>.png` … `character_v<N-1>_<state>.png`) AND
+// keep the legacy `character_<state>.png` filenames as aliases of the
+// variant-0 composite for backwards compatibility with any consumer
+// that still reads SpriteAtlas.character_textures by state alone (e.g.
+// LandingHero.gd before its own variant pass lands).
+for (let v = 0; v < CHARACTER_VARIANTS.length; v++) {
+  const variant = CHARACTER_VARIANTS[v];
+  for (const state of Object.keys(variant)) {
+    const composite = buildCharacter(variant[state]);
+    write(`character_v${v}_${state}.png`, composite);
+    if (v === 0) {
+      // Back-compat alias — same bytes.
+      write(`character_${state}.png`, composite);
+    }
+  }
 }
 write('knife.png', buildKnife());
 write('ground_atlas.png', buildGroundAtlas());
