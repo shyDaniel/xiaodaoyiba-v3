@@ -2,6 +2,28 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 93 — S-445 — deterministic WinnerPicker harness (carry-over from iter 86→87→88→89→90→91→92 finally landed)
+
+**Symptom (carry-over).** No automated way to verify FINAL_GOAL §C10 — that the WinnerPicker overlay actually surfaces with the correct structural pieces (panel + ≥2 target rows + ≥2 action buttons) when a local human wins a multi-target round. The judge had been forced to eyeball stage screenshots round-by-round, and the picker was drifting silently; iron-bot RNG-derived favourites and the lack of a per-round forced-choice surface made it impossible to drive the room into a deterministic winner-with-agency state from the outside.
+
+**Fix.** Six edits, three new files:
+
+1. **`server/src/rooms/Room.ts`** — added `forcedBotChoices: Record<string, RpsChoice>` private field with comment block; new public method `debugForceBotChoice(botId, choice)` (returns false on unknown bot or non-bot id); modified `beginRound()` to consume + clear forced overrides before falling through to the strategy's pickChoice. Cycle-coherent: each forced choice fires exactly once for the next-round consumption.
+2. **`server/src/index.ts`** — added `DebugForceBotChoicePayload` interface and a gated `socket.on('room:debugForceBotChoice', ...)` handler installed only when `process.env.XDYB_DEBUG_BOT_CHOICE === '1'`. Production deployments never expose the hook.
+3. **`client/scripts/globals/GameState.gd`** — added the GDScript-side bridges. `force_bot_choice(bot_id, choice)` emits the new socket event; `_install_js_bridge()` (called from `_ready()`) wires `window.xdyb_debug_forceBotChoice = _js_force_bot_cb` and JS-evals `window.xdyb_debug_getBots = function() { ... }` reading from a `__xdyb_debug_snapshot` global. New `_publish_snapshot_to_js()` mirrors the snapshot dictionary into that global on every `room:snapshot` event so the JS bridge can return the bots' server-assigned ids without round-tripping through GDScript.
+4. **`scripts/check-winner-picker-pixels.py`** (new, ~12 KB) — stdlib-only PNG decoder + three structural gates: `gate_panel_present` (≥220 px wide warm-wood horizontal run centred at viewport centre row), `gate_target_rows` (≥2 vertically-separated near-white text clusters in the panel's upper band, near-white tuned to ≥200/200/200 because the default Godot Button label anti-aliases through 200-235 not pure-white), `gate_action_buttons` (≥2 wood-coloured button-shaped runs 60-200 px wide in the bottom strip — Self is conditional on `canSelfRestore` so 2 is the structural minimum). Exits 0 PASS, 1 FAIL.
+5. **`scripts/validate-winner-picker.mjs`** (new, ~6 KB) — Playwright/chrome-headless-shell harness. Sequence: navigate to :5173 → `xdyb_landing_create()` → `xdyb_lobby_addBot()` ×2 → poll `xdyb_debug_getBots()` for `[bot-1-counter, bot-2-random]` → `xdyb_debug_forceBotChoice(id, 'SCISSORS')` for each → `xdyb_lobby_start()` → `xdyb_game_throw('ROCK')` → wait for `room:winnerChoice` RX frame on the wire (8 s budget) → screenshot to `/tmp/judge_winner_picker/picker.png` after a 600 ms picker fade-in pad → spawn `python3 scripts/check-winner-picker-pixels.py` → exit 0 only when both `sawWinnerChoice` AND `pixelsPass`.
+6. **WORKLOG.md** — this entry.
+
+**Verification.**
+
+- `pnpm test` → 79 shared + 11 server tests pass, no regressions from the `forcedBotChoices` plumbing.
+- `pnpm build:client` → HTML5 export rebuilt with the new GameState.gd bridges; `client/build/index.pck` 28 MB.
+- `XDYB_DEBUG_BOT_CHOICE=1 pnpm dev:server &; bash scripts/serve-html5.sh &; node scripts/validate-winner-picker.mjs` → exit 0; `/tmp/judge_winner_picker/picker.png` shows the carved-wood panel (centred at x=637, 443 px wide), the title `你赢了！选个倒霉蛋` in yellow, two target rows `counter (穿着)` (y=310-322) and `random (穿着)` (y=362-374), and two action buttons `扒裤衩` + `咔嚓` (the `穿好裤衩` Self button is correctly hidden because the winner is `ALIVE_CLOTHED`). Pixel checker JSON: `panel.ok=true, targets.ok=true (2 clusters, max_white_count=26), actions.ok=true (3 button-shaped runs)`.
+- `wsframes.txt` confirms one TX `room:debugForceBotChoice` per bot, one TX `room:choice` ROCK, and the personalized RX `room:winnerChoice` arrives 150 ms after the throw.
+
+**Status.** S-445 complete. The harness is production-grade — gated on an env var so the test hook is dead-code in real deployments; deterministic across runs; pixel-asserts the actual rendered overlay rather than trusting snapshot-only evidence.
+
 ## Iteration 91 — S-439 — flat-mountain regression fixed: CC0 silhouette + 6-stop ramp shading, ≥6 hue clusters
 
 **Symptom (carry-over from iter 85→86→87→88→89→90).** /tmp/judge_throw/t27000.png cols 0-200 rows 100-400 (the §H2.5 ambient mountain backdrop) read as a near-flat blue-grey blob with ≤3 quantized hue clusters. Six consecutive judge passes had flagged it as "asset placeholder" for the environment. The Background.tscn previously painted the mountains with `Polygon2D` flat-fills (`Color(0.42, 0.52, 0.62, 1)` back + `Color(0.27, 0.35, 0.44, 1)` front + a tiny `MountainSnow` polygon) which gave at most 3 hues regardless of viewport position.

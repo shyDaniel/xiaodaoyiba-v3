@@ -39,11 +39,14 @@ var nickname: String = ""
 var my_player_id: String = ""
 var is_connected: bool = false
 
+var _js_force_bot_cb = null
+
 func _ready() -> void:
 	Net.connected.connect(_on_net_connected)
 	Net.disconnected.connect(_on_net_disconnected)
 	Net.connection_error.connect(_on_net_error)
 	Net.event.connect(_on_net_event)
+	_install_js_bridge()
 
 func _on_net_connected() -> void:
 	is_connected = true
@@ -92,6 +95,7 @@ func _on_net_event(name: String, args: Array) -> void:
 		"room:snapshot":
 			snapshot = args[0] if args.size() > 0 else {}
 			_set_my_player_id_from_snapshot()
+			_publish_snapshot_to_js()
 			snapshot_changed.emit(snapshot)
 		"room:effects":
 			var p2: Dictionary = args[0] if args.size() > 0 else {}
@@ -148,3 +152,60 @@ func leave_room() -> void:
 
 func rematch() -> void:
 	Net.emit("room:rematch", [{}])
+
+# --- S-445 debug-only JS bridges ------------------------------------------
+#
+# The headless harness in scripts/validate-winner-picker.mjs needs to
+# (a) read the live snapshot to find bot ids, and (b) force each bot's
+# next-round RPS shape so a WinnerChoicePrompt is reliably surfaced to
+# the LOCAL HUMAN winner. These bridges are no-ops on non-web targets
+# and only meaningful when the server was started with
+# XDYB_DEBUG_BOT_CHOICE=1; an unauthorized call simply fails server-
+# side without leaking any state.
+
+func force_bot_choice(bot_id: String, choice: String) -> void:
+	Net.emit("room:debugForceBotChoice", [{"botId": bot_id, "choice": choice}])
+
+func _install_js_bridge() -> void:
+	if not (OS.has_feature("web") and Engine.has_singleton("JavaScriptBridge")):
+		return
+	_js_force_bot_cb = JavaScriptBridge.create_callback(_js_force_bot_choice)
+	var window = JavaScriptBridge.get_interface("window")
+	if window == null:
+		return
+	window.xdyb_debug_forceBotChoice = _js_force_bot_cb
+	# Snapshot inspector — returns the live bots[] (id, nickname, stage)
+	# as a JSON string. The harness parses this to discover the
+	# server-assigned bot ids without needing to mirror the matchmaking
+	# logic in JS.
+	JavaScriptBridge.eval("""
+		(function () {
+			window.xdyb_debug_getBots = function () {
+				try {
+					var s = window.__xdyb_debug_snapshot || null;
+					if (!s || !s.players) return '[]';
+					return JSON.stringify(s.players.filter(function (p) { return p.isBot; })
+						.map(function (p) { return { id: p.id, nickname: p.nickname, stage: p.stage }; }));
+				} catch (e) { return '[]'; }
+			};
+		})();
+	""", true)
+
+func _js_force_bot_choice(args) -> void:
+	if args == null or args.size() < 2:
+		return
+	var bot_id := str(args[0])
+	var choice := str(args[1])
+	force_bot_choice(bot_id, choice)
+
+# Mirror the latest snapshot into a JS-visible global so the JS bridge
+# above can return the bots' server-assigned ids without round-tripping
+# through GDScript. Cheap (one stringify per snapshot) and only active
+# under web/JavaScriptBridge.
+func _publish_snapshot_to_js() -> void:
+	if not (OS.has_feature("web") and Engine.has_singleton("JavaScriptBridge")):
+		return
+	JavaScriptBridge.eval(
+		"window.__xdyb_debug_snapshot = " + JSON.stringify(snapshot) + ";",
+		true,
+	)

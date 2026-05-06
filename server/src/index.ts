@@ -38,6 +38,10 @@ interface WinnerChoicePayload {
   target: string | null;
   action: ActionKind | null;
 }
+interface DebugForceBotChoicePayload {
+  botId: string;
+  choice: RpsChoice;
+}
 
 /** Shape of the event the server emits when something the client did is invalid. */
 interface ServerError {
@@ -235,6 +239,26 @@ export function startServer(opts: { port?: number; corsOrigin?: string } = {}): 
       const ok = room.submitWinnerChoice(socket.id, { target, action });
       if (!ok) fail('CANNOT_SUBMIT_CHOICE', 'no winner-choice window open for you');
     });
+
+    // S-445 — deterministic test hook. Lets the headless harness
+    // pre-stamp a specific RPS shape onto a bot's next-round choice so
+    // the WinnerChoicePrompt can be reliably surfaced to a HUMAN
+    // winner. Gated on XDYB_DEBUG_BOT_CHOICE so production deployments
+    // never expose it. The override clears itself after the bot
+    // submits, so the test can re-arm it round-by-round.
+    if (process.env.XDYB_DEBUG_BOT_CHOICE === '1') {
+      socket.on('room:debugForceBotChoice', (raw: unknown) => {
+        const payload = raw as Partial<DebugForceBotChoicePayload>;
+        if (!isString(payload?.botId)) return fail('BAD_BOT_ID', 'botId required');
+        if (!isRpsChoice(payload?.choice)) return fail('BAD_CHOICE', 'choice must be ROCK/PAPER/SCISSORS');
+        const code = registry.socketRoom(socket.id);
+        if (!code) return fail('NOT_IN_ROOM', 'join or create a room first');
+        const room = registry.get(code);
+        if (!room) return fail('NO_ROOM', 'room no longer exists');
+        const ok = room.debugForceBotChoice(payload.botId, payload.choice);
+        if (!ok) fail('BAD_BOT_ID', `no bot with id ${payload.botId}`);
+      });
+    }
 
     socket.on('room:rematch', () => {
       const code = registry.socketRoom(socket.id);

@@ -157,6 +157,32 @@ export class Room {
     this.addHuman(opts.hostId, opts.hostNickname, opts.hostSocketId);
   }
 
+  /** S-445 debug-only forced bot choices. Keyed by botId; consumed +
+   *  cleared on the next beginRound() call. ONLY honored when the
+   *  server was started with XDYB_DEBUG_BOT_CHOICE=1; the index.ts
+   *  socket handler never wires this through otherwise.
+   *
+   *  Existence rationale: scripts/validate-winner-picker.mjs needs to
+   *  drive a deterministic 3-player room where the LOCAL HUMAN throws
+   *  ROCK and BOTH bots throw SCISSORS (so the human is the unique
+   *  winner with 2 eligible targets — exactly the WinnerChoicePrompt
+   *  surfacing condition). Without a forced-choice hook there is no
+   *  reliable way to make the iron-bot favorite a specific shape from
+   *  the outside (favorite is RNG-derived from the seed, and the seed
+   *  isn't exposed via the socket protocol). One per-round override
+   *  registry is the smallest surface that gets us there. */
+  private forcedBotChoices: Record<string, RpsChoice> = {};
+
+  /** Public test hook — see forcedBotChoices. Index.ts gates the
+   *  socket-event entry point on XDYB_DEBUG_BOT_CHOICE; this method is
+   *  always callable from in-process tests. */
+  debugForceBotChoice(botId: string, choice: RpsChoice): boolean {
+    const member = this.members.find((m) => m.id === botId);
+    if (!member || !member.isBot) return false;
+    this.forcedBotChoices[botId] = choice;
+    return true;
+  }
+
   /** Total members (humans + bots). */
   size(): number {
     return this.members.length;
@@ -357,6 +383,15 @@ export class Room {
       if (!member.isBot || !member.bot) continue;
       const player = this.players.find((p) => p.id === member.id);
       if (!player || player.stage === 'DEAD') continue;
+      // S-445 debug-only override: if the test harness forced a choice
+      // for this bot in advance, honor it and clear so it only fires
+      // for the next round (cycle-coherent behavior).
+      const forced = this.forcedBotChoices[member.id];
+      if (forced !== undefined) {
+        this.choices[member.id] = forced;
+        delete this.forcedBotChoices[member.id];
+        continue;
+      }
       const choice = member.bot.strategy.pickChoice(
         {
           selfId: member.id,
