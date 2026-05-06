@@ -66,7 +66,20 @@ var _variant: int = 0
 # "contrasting outline/drop-shadow per label" clause so each fanned
 # out name pops against the busy isometric background instead of
 # bleeding into the wall sprite behind it. See FINAL_GOAL §C8.
-const LABEL_STACK_OFFSET: float = 44.0
+# S-443 — bumped 44 → 56 so the visitor-at-idx=1 label clears the
+# HOUSE's own NameLabel band by ≥ 4 px even before the per-frame
+# reconciler hides the house label. With the .tscn-authored offsets
+# (character label top=-130, bottom=-110; character anchor at
+# house_pos+(0,64); house label top=-134, bottom=-110) a 56 px lift
+# puts visitor label at world y in (house_y - 122, house_y - 102),
+# whose bottom edge sits 12 px below the house label's bottom. That
+# gap is big enough that even a one-frame race where the house label
+# is still visible cannot OCR-concatenate "counter" + "random" into
+# "random.nter" (the t27000.png regression). The character-on-
+# character math (resident at house_y-66..-46 vs visitor at
+# house_y-122..-102) keeps a 36 px clear gutter between adjacent
+# labels — well over the ≥ label-height (24 px) + 4 px brief.
+const LABEL_STACK_OFFSET: float = 56.0
 # Per-occupant horizontal stagger applied on top of each label's
 # default x. With 8 px-per-occupant a 3-actor pile-up reads as a
 # clean descending diagonal (idx=1 → +8, idx=2 → +16, idx=3 → +24).

@@ -290,6 +290,21 @@ func _reconcile_label_stacks() -> void:
 			ch.set_label_resident_dimmed(want_dim)
 			_label_dim_cache[pid] = want_dim
 
+	# S-443 — toggle each house's own NameLabel visibility based on
+	# the reconciler's occupants ledger. Houses with ≥1 visitor camped
+	# on their anchor hide their fixed-position name label so it can't
+	# visually concatenate with the fan-out character labels (the
+	# t27000.png 'random.nter' regression where the house label
+	# 'counter' abutted the visitor character label 'random' at the
+	# exact same world y, reading as a single horizontal text string).
+	# Houses with 0 visitors restore their label.
+	for hpid in _houses.keys():
+		var house = _houses[hpid]
+		if house == null or not house.has_method("set_label_visited"):
+			continue
+		var visited: bool = _house_occupants.has(String(hpid)) and not (_house_occupants[String(hpid)] as Array).is_empty()
+		house.set_label_visited(visited)
+
 func _player_grid_pos(i: int, n: int) -> Vector2i:
 	var angle := TAU * float(i) / float(max(n, 1)) - TAU * 0.25
 	var radius := 4

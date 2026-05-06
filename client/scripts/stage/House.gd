@@ -17,6 +17,16 @@ var _stage: int = 0          # 0..3 damage
 var _variant: int = 0        # 0..HOUSE_VARIANTS-1
 var _player_id: String = ""
 var _player_color: Color = Color(1, 1, 1, 1)
+# S-443 — when ≥1 visitor is camped on this house's anchor, hide the
+# house's own NameLabel so the per-character labels (which fan out
+# vertically via Character.LABEL_STACK_OFFSET) don't visually
+# concatenate with this fixed-position house label. Without this
+# guard the resident character's label top edge (world y =
+# house_y - 110) abuts the house label's bottom edge (world y =
+# house_y - 110) with ZERO gap, producing the t27000.png
+# 'random.nter' run where 'counter' (house label) and 'random'
+# (visitor label, idx=1) read as a single horizontal text string.
+var _label_visited: bool = false
 
 func _atlas() -> Node:
 	# get_node_or_null("/root/...") emits a Godot warning if the calling
@@ -88,6 +98,20 @@ func set_player_color(c: Color) -> void:
 func set_label(s: String) -> void:
 	if _name_label != null:
 		_name_label.text = s
+
+# S-443 — toggle the visited state of this house. When visited (≥1
+# camped visitor character), hide the house's NameLabel so the
+# fixed-position house text can't visually concatenate with the
+# fan-out character labels. When unvisited, restore the label.
+# GameStage._reconcile_label_stacks calls this every frame from the
+# reconciler's `occupants` ledger so the toggle tracks live world
+# positions.
+func set_label_visited(visited: bool) -> void:
+	if _label_visited == visited:
+		return
+	_label_visited = visited
+	if _name_label != null:
+		_name_label.visible = not visited
 
 func show_damage() -> void:
 	# Advance the damage stage (cap at 3 = ruined).
