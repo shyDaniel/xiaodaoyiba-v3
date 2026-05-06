@@ -1,11 +1,17 @@
 ## check_action_coverage.gd — S-393 acceptance test for the brief.
 ##
-## Loads docs/screenshots/action.png and verifies that each of the 4
-## player anchors has measurable non-background coverage in:
+## Loads docs/screenshots/action_mock.png (the deterministic offline
+## mock written by render_action_static.gd) and verifies that each of
+## the 4 player anchors has measurable non-background coverage in:
 ##   1. a 192×192 house bounding box, AND
 ##   2. a 96×128 character bounding box (the brief's spec — the actual
 ##      character is rendered at 72×96 inside that box, so we sample the
 ##      enclosing brief-spec rectangle).
+##
+## S-435: switched from action.png to action_mock.png. The canonical
+## docs/screenshots/action.png is now a live chromium-headless-shell
+## capture (different stage layout, anchors don't match), so the
+## deterministic-anchor coverage test reads the offline mock instead.
 ##
 ## "Non-background" means the pixel is NOT in the sky/grass/iso-tile
 ## palette (R, G, B all in the green/sky band). Threshold: ≥ 30% of
@@ -68,8 +74,8 @@ func _coverage(img: Image, x0: int, y0: int, x1: int, y1: int) -> float:
 
 func _init() -> void:
 	await process_frame
-	var path := "res://../docs/screenshots/action.png"
-	var abs_path := ProjectSettings.globalize_path("res://").path_join("../docs/screenshots/action.png").simplify_path()
+	var path := "res://../docs/screenshots/action_mock.png"
+	var abs_path := ProjectSettings.globalize_path("res://").path_join("../docs/screenshots/action_mock.png").simplify_path()
 	var img := Image.new()
 	var err := img.load(abs_path)
 	if err != OK:

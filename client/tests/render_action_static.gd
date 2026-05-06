@@ -1,8 +1,17 @@
-## render_action_static.gd — compose a Game-like action frame *without*
-## a viewport (so it works in headless WSL2 where viewport rendering is
-## blocked). Blits the SpriteAtlas house + character ImageTextures onto
-## a hand-painted iso ground plane to produce a 1280×720 PNG that
-## demonstrates §C11 viral aesthetic for the docs/screenshots gate.
+## render_action_static.gd — compose a static design-mock action frame
+## *without* a viewport (so it works in headless WSL2 where viewport
+## rendering is blocked). Blits the SpriteAtlas house + character
+## ImageTextures onto a hand-painted iso ground plane to produce a
+## 1280×720 PNG used for offline pixel-coverage regression testing
+## (see check_action_coverage.gd) — NOT for the docs gallery.
+##
+## S-435: writes docs/screenshots/action_mock.png (renamed from
+## action.png). The canonical docs/screenshots/action.png is now a
+## live chromium-headless-shell capture from
+## scripts/validate-game-progression.mjs. This script's output is
+## kept around because check_action_coverage.gd asserts on its
+## deterministic anchor layout — but it is no longer the README hero
+## image, and the file path makes that explicit.
 ##
 ## S-169: also draws real readable UI text into the phase banner,
 ## BattleLog rows, and HandPicker chips. We can't use FontFile cache
@@ -21,7 +30,7 @@
 ##
 ## Output:
 ##   /tmp/xdyb_action_static.png
-##   docs/screenshots/action.png    (overwritten — gallery copy)
+##   docs/screenshots/action_mock.png    (overwritten — coverage-test target)
 extends SceneTree
 
 const W := 1280
@@ -321,8 +330,11 @@ func _init() -> void:
 	_draw_picker_chip(img, 512, H - 124, 220, 96, 0x270C, "SCISSORS")
 
 	img.save_png("/tmp/xdyb_action_static.png")
-	# Also overwrite the docs gallery copy.
-	var abs := ProjectSettings.globalize_path("res://").path_join("../docs/screenshots/action.png").simplify_path()
+	# S-435: write the static mock to action_mock.png. The canonical
+	# docs/screenshots/action.png is now a live chromium-headless-shell
+	# capture from scripts/validate-game-progression.mjs and must NOT be
+	# overwritten by this offline mock.
+	var abs := ProjectSettings.globalize_path("res://").path_join("../docs/screenshots/action_mock.png").simplify_path()
 	img.save_png(abs)
 	print("[render_action_static] wrote /tmp/xdyb_action_static.png and ", abs, " size=", img.get_size())
 	quit(0)
@@ -534,7 +546,7 @@ func _blit_house(img: Image, sa: Node, anchor: Vector2i, roof_tint: Color, varia
 	# Widened to Texture2D — SpriteAtlas now returns CompressedTexture2D
 	# from PNG load() (per §I.0 ban on procedural ImageTextures); the
 	# narrower ImageTexture annotation aborted the blit per-player and
-	# left docs/screenshots/action.png as an empty iso stage.
+	# left docs/screenshots/action_mock.png as an empty iso stage.
 	# S-401: route through SpriteAtlas.texture_for_house(variant, dmg) so
 	# each anchor blits its OWN house variant (v0..v3) — gives 4 visually
 	# distinct dwellings instead of 4 tinted copies of the same palette.
