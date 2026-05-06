@@ -43,13 +43,26 @@ extends Control
 @onready var _start: Button = $Card/V/Buttons/Start
 @onready var _leave: Button = $Card/V/Buttons/Leave
 
-# Themed background nodes (S-327). Populated from SpriteAtlas one frame
-# after _ready() so the autoload's texture-build pass has finished.
+# Themed background nodes (S-327, S-430). Populated from SpriteAtlas
+# one frame after _ready() so the autoload's texture-build pass has
+# finished.
+#
+# S-430 — the row now hosts FOUR houses, one per SpriteAtlas variant
+# (HOUSE_VARIANTS == 4). Pre-S-430 the row had three houses sharing
+# texture_for_house(0, 0) and varied only by per-instance modulate;
+# the v0 silhouette was identical across all three so a viewer's
+# first impression of the lobby read as "asset placeholder × 3" even
+# though check-house-variation.mjs passed on iso-projected mid-action
+# frames. The gallery shape (4 visibly different roofs/walls) is
+# more decisive than per-player hashing because it removes the
+# possibility of two players hashing into the same variant in a
+# 3-player lobby.
 @onready var _knife: Sprite2D = $KnifeAnchor/Knife
 @onready var _knife_anchor: Node2D = $KnifeAnchor
-@onready var _house_left: Sprite2D = $HouseRow/HouseLeft/Sprite
-@onready var _house_center: Sprite2D = $HouseRow/HouseCenter/Sprite
-@onready var _house_right: Sprite2D = $HouseRow/HouseRight/Sprite
+@onready var _house_v0: Sprite2D = $HouseRow/HouseV0/Sprite
+@onready var _house_v1: Sprite2D = $HouseRow/HouseV1/Sprite
+@onready var _house_v2: Sprite2D = $HouseRow/HouseV2/Sprite
+@onready var _house_v3: Sprite2D = $HouseRow/HouseV3/Sprite
 
 # Tween that drives the gentle ±4px Y bob on the floating knife — a
 # constant idle animation so a static lobby screenshot still feels
@@ -112,22 +125,37 @@ func _apply_theme_textures() -> void:
 		if knife_tex != null:
 			_knife.texture = knife_tex
 	_start_knife_bob()
-	# Three houses with three distinct roof tints — left=peach, center
-	# =cream-yellow, right=mint. The roof modulate on the procedural
-	# atlas leaves the wall beige + shingle bands legible while the
-	# white roof pixels accept the tint. Same approach LandingHero.gd
-	# uses on the iso preview houses.
-	if sa != null and not sa.house_textures.is_empty():
-		var house_tex: Texture2D = sa.house_textures[0]
-		if _house_left != null:
-			_house_left.texture = house_tex
-			_house_left.modulate = Color(1, 1, 1, 1).lerp(Color(1.00, 0.78, 0.78, 1.0), 0.55)
-		if _house_center != null:
-			_house_center.texture = house_tex
-			_house_center.modulate = Color(1, 1, 1, 1).lerp(Color(1.00, 0.95, 0.78, 1.0), 0.55)
-		if _house_right != null:
-			_house_right.texture = house_tex
-			_house_right.modulate = Color(1, 1, 1, 1).lerp(Color(0.82, 1.00, 0.84, 1.0), 0.55)
+	# Four-house gallery, one per SpriteAtlas HOUSE_VARIANTS slot
+	# (S-430). Each variant is a fundamentally different PNG —
+	#   v0: red plank-shingle roof + brown wood wall
+	#   v1: blue tiled roof + grey stone wall
+	#   v2: red plank-shingle roof + grey stone wall
+	#   v3: blue tiled roof + brown wood wall
+	# — sourced from gen-3rd-party-composites.mjs's variant pass over
+	# Kenney Tiny Town. Per-instance modulate is left at white so the
+	# native palette differences carry the visual variety, instead of
+	# the pre-S-430 pattern of one PNG × three different roof tints.
+	#
+	# We use texture_for_house(v, 0) when the autoload exposes it
+	# (variant-aware lookup added in S-417); fall back to the
+	# damage-stage 0 texture otherwise so a partially-built atlas
+	# still renders something. If even that fails, the slot stays
+	# empty rather than crashing — the lobby card + knife + sky still
+	# read.
+	if sa != null:
+		var slots := [_house_v0, _house_v1, _house_v2, _house_v3]
+		for i in range(slots.size()):
+			var sprite: Sprite2D = slots[i]
+			if sprite == null:
+				continue
+			var tex: Texture2D = null
+			if sa.has_method("texture_for_house"):
+				tex = sa.texture_for_house(i, 0)
+			if tex == null and not sa.house_textures.is_empty():
+				tex = sa.house_textures[0]
+			if tex != null:
+				sprite.texture = tex
+			sprite.modulate = Color(1, 1, 1, 1)
 
 func _start_knife_bob() -> void:
 	# Idle ±4 px Y bob on a 1.4-second sine-eased loop. The knife

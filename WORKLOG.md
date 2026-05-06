@@ -2496,3 +2496,72 @@ Verification:
   "iron" banner clipping the right rail. t27000.png shows the game has
   cycled back to landing/lobby with a clean state. The eval80 corpse-rail
   artifact is gone.
+
+## Iteration 89 — S-430: lobby four-house gallery
+
+Fixed the lobby first-impression "asset placeholder × 3" symptom from
+/tmp/judge_iter89/02-after-bots.png: three houses sharing a single
+red+brown PNG, varied only by per-instance modulate, that read as
+visually identical at the lobby viewport.
+
+The composite atlas has owned four distinct house variants since
+S-417 (`house_v0..v3_d0..3.png`, sourced from Kenney Tiny Town via
+`scripts/gen-3rd-party-composites.mjs`):
+- v0: red plank-shingle roof + brown wood wall
+- v1: blue tiled roof + grey stone wall
+- v2: red plank-shingle roof + grey stone wall
+- v3: blue tiled roof + brown wood wall
+
+Lobby.tscn previously composed only three slots (HouseLeft / HouseCenter
+/ HouseRight) all reading `SpriteAtlas.house_textures[0]`. Replaced with
+a four-slot gallery (HouseV0..HouseV3) and switched Lobby.gd's
+`_apply_theme_textures()` to call `SpriteAtlas.texture_for_house(i, 0)`
+per slot, dropping the per-instance roof modulate so the native PNG
+palettes carry the variety. The gallery shape (always 4 distinct
+variants) is more decisive than per-player hashing because it removes
+the hash-collision possibility of two players landing on the same
+variant in a 3-player lobby.
+
+Files changed:
+- `client/scenes/Lobby.tscn` — HouseRow now declares HouseV0..HouseV3
+  Sprite2Ds at x∈{-330, -110, 110, 330}; old HouseLeft/HouseCenter/
+  HouseRight nodes removed.
+- `client/scripts/ui/Lobby.gd` — `_apply_theme_textures` iterates over
+  the four slots, calls `texture_for_house(i, 0)` on the SpriteAtlas
+  autoload (with a defensive fallback to `house_textures[0]` if the
+  variant-aware method isn't exposed), sets modulate to white so the
+  source palettes are not desaturated by tinting. Updated the
+  `@onready` block (`_house_v0`/`_house_v1`/`_house_v2`/`_house_v3`).
+- `client/tests/smoke_lobby_theme.gd` — updated the asserted node
+  paths from HouseLeft/Center/Right to HouseV0..V3, replaced the
+  "modulates are all distinct" gate with a "≥3 distinct
+  Texture2D resource_paths across the four slots" gate so the
+  acceptance shape matches the new gallery.
+
+Verification:
+- `pnpm test` → 90/90 pass (shared 79 + server 11).
+- `godot --headless --path client --script res://tests/smoke_lobby_theme.gd` → PASS
+- `godot --headless --path client --script res://tests/smoke_lobby.gd` → PASS
+- `godot --headless --path client --script res://tests/smoke_lobby_keybinds.gd` → PASS
+- `godot --headless --path client --script res://tests/render_lobby.gd` → PASS (no forbidden-English substrings)
+- `bash scripts/build.sh --client-only` → HTML5 export OK (60 MB).
+- `node scripts/validate-lobby-keybinds.mjs` → PASS with screenshots
+  in /tmp/lobby_keybind_check/.
+- `node scripts/check-house-variation.mjs /tmp/lobby_keybind_check/03-after-a3x-keyboard.png` →
+  `distinct_pairs=5/6 threshold=5 ... [house-variation] PASS`. Quadrant
+  histograms: TL~TR=0.46, TL~BL=0.20, TL~BR=0.58, TR~BL=0.91,
+  TR~BR=0.88, BL~BR=0.67. The single TOO_SIMILAR pair (TL~BL ≈ the
+  empty sky-and-grass column on the left where the lobby card sits)
+  is expected and within the 5/6 threshold.
+- `node scripts/validate-game-progression.mjs` →
+  sawChoiceTx=true sawEffectsRx=true sawRound3=true. Mid-action
+  `/tmp/judge_throw/t27000.png` still PASSes check-house-variation
+  (5/6 distinct pairs).
+- `grep ... draw_line\|draw_circle\|...` against client/scripts/ →
+  0 hits (§I.0 procedural-art ban still green).
+
+Eyeball: /tmp/lobby_keybind_check/03-after-a3x-keyboard.png shows
+4 visibly different houses (red+brown, blue+grey, red+grey,
+blue+brown) lined up across the lobby's right side — first-impression
+viewer immediately reads "everyone gets a different home" instead
+of "asset placeholder × 3".

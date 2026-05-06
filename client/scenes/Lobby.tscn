@@ -131,33 +131,49 @@ centered = true
 scale = Vector2(2.4, 2.4)
 rotation = -0.35
 
-; --- House row — three sample iso houses behind the player list, tinted
-; --- in three distinct roof palettes so the §C11 "≥3 distinct house
-; --- color schemes" gate is met at the lobby viewport already. Lobby.gd
-; --- assigns SpriteAtlas.house_textures[0] + per-instance modulate.
+; --- House gallery (S-430) — four iso houses, one per SpriteAtlas
+; --- HOUSE_VARIANTS slot, so the lobby's first impression reads
+; --- "everyone gets a different home". Pre-S-430 this row used the
+; --- same house_textures[0] PNG modulated by three different roof
+; --- tints; the v0 source PNG has a red roof + brown wall whose
+; --- silhouette was identical across all three sprites, so the
+; --- judge frame /tmp/judge_iter89/02-after-bots.png read as
+; --- "asset placeholder × 3". The composite atlas now owns four
+; --- visually distinct variants (v0 red+brown, v1 blue+grey,
+; --- v2 red+grey, v3 blue+brown) and Lobby.gd assigns
+; --- SpriteAtlas.texture_for_house(v, 0) per slot. Acceptance:
+; --- scripts/check-house-variation.mjs against the lobby capture
+; --- now reports ≥5/6 pairwise quadrants distinct.
 [node name="HouseRow" type="Node2D" parent="."]
-position = Vector2(880, 560)
+position = Vector2(840, 560)
 
-[node name="HouseLeft" type="Node2D" parent="HouseRow"]
-position = Vector2(-220, 20)
+[node name="HouseV0" type="Node2D" parent="HouseRow"]
+position = Vector2(-330, 20)
 
-[node name="Sprite" type="Sprite2D" parent="HouseRow/HouseLeft"]
+[node name="Sprite" type="Sprite2D" parent="HouseRow/HouseV0"]
 centered = true
-scale = Vector2(0.85, 0.85)
+scale = Vector2(0.80, 0.80)
 
-[node name="HouseCenter" type="Node2D" parent="HouseRow"]
-position = Vector2(0, -10)
+[node name="HouseV1" type="Node2D" parent="HouseRow"]
+position = Vector2(-110, -10)
 
-[node name="Sprite" type="Sprite2D" parent="HouseRow/HouseCenter"]
+[node name="Sprite" type="Sprite2D" parent="HouseRow/HouseV1"]
 centered = true
-scale = Vector2(1.05, 1.05)
+scale = Vector2(0.95, 0.95)
 
-[node name="HouseRight" type="Node2D" parent="HouseRow"]
-position = Vector2(220, 20)
+[node name="HouseV2" type="Node2D" parent="HouseRow"]
+position = Vector2(110, -10)
 
-[node name="Sprite" type="Sprite2D" parent="HouseRow/HouseRight"]
+[node name="Sprite" type="Sprite2D" parent="HouseRow/HouseV2"]
 centered = true
-scale = Vector2(0.85, 0.85)
+scale = Vector2(0.95, 0.95)
+
+[node name="HouseV3" type="Node2D" parent="HouseRow"]
+position = Vector2(330, 20)
+
+[node name="Sprite" type="Sprite2D" parent="HouseRow/HouseV3"]
+centered = true
+scale = Vector2(0.80, 0.80)
 
 ; --- Lobby card — the admin/control surface. Smaller and lower so the
 ; --- themed background reads through. The previous version's 520×520

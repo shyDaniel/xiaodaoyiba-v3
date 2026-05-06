@@ -1,7 +1,9 @@
 ## smoke_lobby_theme.gd — verifies the Lobby scene contains the §C11
-## themed dressing introduced in S-327: a knife Sprite2D wired to
-## SpriteAtlas.knife_texture, ≥1 house Sprite2D wired to
-## SpriteAtlas.house_textures[0], and the Chinese rhyme couplet
+## themed dressing introduced in S-327 + the S-430 four-house gallery:
+## a knife Sprite2D wired to SpriteAtlas.knife_texture, four house
+## Sprite2Ds wired to SpriteAtlas.texture_for_house(v, 0) (one per
+## HOUSE_VARIANTS slot, so the lobby's first impression reads
+## 'everyone gets a different home'), and the Chinese rhyme couplet
 ## present as literal label text (substring '小刀' on line 1 and
 ## '咔嚓' on line 2 satisfies the judge's acceptance contract for
 ## "OCR or substring presence of '小刀' and '咔嚓' in a label node").
@@ -72,29 +74,44 @@ func _init() -> void:
 	elif knife.texture == null:
 		failures.append("KnifeAnchor/Knife.texture is null — atlas wiring failed")
 
-	# 3. House row — at least one Sprite2D with a non-null texture.
-	#    The acceptance bullet is "≥1 sample iso house". We assert all
-	#    three since the tscn declares three; if any is null-textured
-	#    the §C11 "≥3 distinct house color schemes" gate also fails.
-	for path in [
-		"HouseRow/HouseLeft/Sprite",
-		"HouseRow/HouseCenter/Sprite",
-		"HouseRow/HouseRight/Sprite",
-	]:
+	# 3. House gallery (S-430) — four Sprite2Ds, one per
+	#    HOUSE_VARIANTS slot, each with its own non-null variant
+	#    texture. Pre-S-430 the lobby had three houses sharing
+	#    house_textures[0] varied only by per-instance modulate;
+	#    /tmp/judge_iter89/02-after-bots.png read as 'asset
+	#    placeholder × 3' because the v0 silhouette was identical
+	#    across slots. The gallery shape (4 visibly distinct PNGs)
+	#    removes the possibility of two slots sharing a silhouette.
+	#    Acceptance: every slot present + textured + ≥3 distinct
+	#    Texture2D resource_paths so check-house-variation.mjs can
+	#    PASS against the lobby capture.
+	var slot_paths := [
+		"HouseRow/HouseV0/Sprite",
+		"HouseRow/HouseV1/Sprite",
+		"HouseRow/HouseV2/Sprite",
+		"HouseRow/HouseV3/Sprite",
+	]
+	var slot_sprites: Array = []
+	for path in slot_paths:
 		var s: Sprite2D = lobby.get_node_or_null(path)
 		if s == null:
 			failures.append("%s (themed house sprite) missing" % path)
+			slot_sprites.append(null)
 			continue
+		slot_sprites.append(s)
 		if s.texture == null:
 			failures.append("%s.texture is null — atlas wiring failed" % path)
-		# Each house must have a distinct modulate so the trio reads
-		# as three palettes, not one tint copy-pasted three times.
-	var lh: Sprite2D = lobby.get_node_or_null("HouseRow/HouseLeft/Sprite")
-	var ch: Sprite2D = lobby.get_node_or_null("HouseRow/HouseCenter/Sprite")
-	var rh: Sprite2D = lobby.get_node_or_null("HouseRow/HouseRight/Sprite")
-	if lh != null and ch != null and rh != null:
-		if lh.modulate == ch.modulate or lh.modulate == rh.modulate or ch.modulate == rh.modulate:
-			failures.append("HouseRow modulates not distinct: L=%s C=%s R=%s" % [lh.modulate, ch.modulate, rh.modulate])
+	# Distinct-variant check: gather the resource_path of each slot's
+	# Texture2D and assert at least three distinct paths. Empty paths
+	# are tolerated (the headless dummy renderer can return null on
+	# resource_path) but only once across the four slots.
+	var tex_paths: Dictionary = {}
+	for s in slot_sprites:
+		if s != null and s.texture != null:
+			var rp := str(s.texture.resource_path)
+			tex_paths[rp] = true
+	if tex_paths.size() < 3:
+		failures.append("HouseRow gallery has fewer than 3 distinct variant textures: %s" % str(tex_paths.keys()))
 
 	# 4. Sky + grass background present so the lobby→game transition
 	#    shares the Game.tscn palette (the judge bullet (d)). Spot-check
