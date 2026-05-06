@@ -2,6 +2,27 @@
 
 Append-only iteration log for xiaodaoyiba v3. Newest entries on top.
 
+## Iteration 87 — S-417 — LIVE HOUSE VARIATION wired (per-player variant pick)
+
+**Symptom (carry-over from iter 85/86).** `grep variant\|playerId\|texture_for House.gd` returned 0 hits. SpriteAtlas exposed `texture_for_house(variant, dmg)` and 4×4 composite PNGs were on disk, but House.gd indexed `house_textures[stage]` only — collapsing every player's house onto variant 0. Live frames at /tmp/judge_iter86/t13000.png and t27000.png showed 3 identical red-heart-wallpaper houses despite the 4-variant pack being shipped.
+
+**Fix.** Three edits, one new test, one new validator script:
+
+1. `client/scripts/stage/House.gd` — added `set_player_id(pid)`, `_variant_for_player_id(pid)` computing `int(abs(hash(pid))) % atlas.HOUSE_VARIANTS`, and rewrote `_apply_textures()` to call `atlas.texture_for_house(_variant, _stage)` (with a defensive `house_textures[stage]` fallback). `_atlas()` guards on `is_inside_tree()` so the autoload lookup doesn't fire the "absolute paths from outside the active scene tree" warning when called pre-_ready, and `_ready()` recomputes the variant once the autoload is reachable.
+2. `client/scripts/stage/GameStage.gd` — `_ensure_house()` now calls `house.set_player_id(pid)` before `set_player_color` / `set_label`, so the variant texture is the one tinted (not the variant-0 fallback).
+3. `client/tests/render_house_variants.gd` — instantiates 4 Houses with diverse pids, asserts ≥3 distinct `_variant` ints AND ≥3 distinct `Body.texture` Texture2D instances. Acceptance: PASS — pid-alice→v1, pid-bob→v0, pid-cara→v2, pid-dan→v3 (4-of-4 distinct variants and textures).
+4. `scripts/check-house-variation.mjs` — splits a captured PNG into 4 quadrants of the playable area (excluding BattleLog rail and phase banner), computes 64-bin RGB histograms, asserts ≥5 of 6 pairwise cosine distances > 0.20. Run on /tmp/judge_iter87b/t27000.png: 5/6 PASS (TR~BR similarity is the BattleLog rail bleeding into both right-edge quadrants). Run on /tmp/judge_iter87b/t13000.png: 5/6 PASS.
+
+**Live capture evidence (driven via scripts/validate-game-progression.mjs against the freshly exported HTML5 bundle):**
+
+- /tmp/judge_iter87b/t27000.png shows 4 visibly distinct houses: TL = blue-checkered roof + single arch, TR = red shingled roof + double-door arch, BL (iron) = blue-checkered roof + side window, BR (counter) = gray-stone walls + double window. Saved as docs/screenshots/action.png and screenshots/iter87-action-4-distinct-houses.png.
+- t18000 frame fortuitously surfaces the C10 winner-picker dialog (你赢了！选个倒霉蛋 + 扒裤衩/咔嚓/穿好裤衩 buttons + 2 target rows), captured through the same harness — so item C10 has its first live capture in this iteration as a side effect.
+- validate-game-progression: PASS (multi-round S-243 + S-277 spectator visual progression). RPS_REVEAL=3, room:effects=3, distinct human room:choice TX=3, sawRound3=true, lateFramesMove=true (md5 t18≠t22≠t27).
+
+**Floor gates.** vitest 90/90 PASS (shared 79, server 11). render_house_atlas regression: PASS. render_house_variants new: PASS. Godot --check-only: clean. HTML5 bundle re-exported (60 MB; 6 MB cap is a soft warn).
+
+**What's still outstanding (carry-over for next iter).** Character variation is still keyed only by visual_state — same purple-hooded sprite for all 3 players. §H2.2 3-door wall bug, §H2.5 ambient detail (mountain hue clusters, cloud cycle, smoke/grass density), and the C10 picker validator script as a deterministic 3-player scenario rather than a side-effect capture all remain.
+
 ## Iteration 86 — S-409 — STALE BUILD: fail loud when sources outpace client/build/index.pck
 
 **Symptom.** Iter-85 (S-401) shipped 16 redrawn house composite PNGs +

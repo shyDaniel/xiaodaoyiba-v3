@@ -302,6 +302,11 @@ func _ensure_house(pid: String, pos: Vector2, player: Dictionary, i: int, n: int
 	# House anchor at its base; House.tscn positions the Body sprite up
 	# from this anchor so y_sort_enabled depth-sorts naturally.
 	house.position = pos
+	# S-417: pid drives the variant pick BEFORE the per-player tint /
+	# label apply. set_player_id calls _apply_textures so the variant
+	# texture is the one tinted, not the default fallback.
+	if house.has_method("set_player_id"):
+		house.set_player_id(pid)
 	if house.has_method("set_player_color"):
 		house.set_player_color(_player_color(i, n))
 	if house.has_method("set_label"):
