@@ -67,6 +67,21 @@ provenance only.
   GPUParticles2D fall-back if the procedural Fx.gd dots ever need to
   be replaced with hand-painted variants.
 
+### Kenney Background Elements (S-439 §H2.5)
+
+- path: client/assets/sprites/3rd-party/kenney_background-elements/
+- source_url: https://kenney.nl/assets/background-elements
+- license: CC0-1.0
+- author: Kenney (www.kenney.nl)
+- attribution_required: no
+- notes: Mountain / hill silhouette pack. The pointy_mountains.png
+  silhouette is the source mask for the shaded mountain composites
+  (mountain_front.png / mountain_back.png) baked by
+  scripts/gen-mountain-composite.mjs and used in
+  client/scenes/stage/Background.tscn — replaces the flat blue-grey
+  Polygon2D mountains that shipped before iter-91 and got flagged for
+  6 consecutive iterations as failing §H2.5's hue-cluster gate.
+
 ## Endesga 32 palette (referenced, not embedded)
 
 - file: client/assets/palette.tres (regenerated procedurally — values
@@ -112,3 +127,18 @@ are pure pixel copies + nearest-neighbour scale, no novel content:
   (1536×768) — pre-baked 11×11 iso lattice for Ground.gd
 - client/assets/sprites/3rd-party/composites/ground_lattice_9.png
   (1280×640) — pre-baked 9×9 iso lattice for LandingHero.gd
+
+## Composite outputs (S-439 §H2.5 mountain pass)
+
+Built by `node scripts/gen-mountain-composite.mjs` from the Kenney
+Background Elements pointy_mountains.png CC0 silhouette. Inherits
+CC0-1.0 because the recipe is silhouette-mask + ramp-shade (no novel
+content beyond colour assignment per pixel within the mask):
+
+- client/assets/sprites/3rd-party/composites/mountain_front.png
+  (1001×168) — saturated foreground ridge with crisp snow caps + lit
+  ridges (NW sun) + valley shadows. ≥6 hue clusters by construction
+  (12 distinct quantized buckets measured at gen time).
+- client/assets/sprites/3rd-party/composites/mountain_back.png
+  (1001×168) — desaturated, lighter back layer (atmospheric perspective)
+  for the lower-motion-scale parallax row.

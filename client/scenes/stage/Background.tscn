@@ -1,6 +1,8 @@
-[gd_scene load_steps=2 format=3 uid="uid://bxdyb_background_v1"]
+[gd_scene load_steps=4 format=3 uid="uid://bxdyb_background_v1"]
 
 [ext_resource type="Script" path="res://scripts/stage/Clouds.gd" id="1_clouds"]
+[ext_resource type="Texture2D" path="res://assets/sprites/3rd-party/composites/mountain_back.png" id="2_mback"]
+[ext_resource type="Texture2D" path="res://assets/sprites/3rd-party/composites/mountain_front.png" id="3_mfront"]
 
 [node name="Background" type="ParallaxBackground"]
 
@@ -20,23 +22,41 @@ offset_right = 2000.0
 offset_bottom = 420.0
 color = Color(0.95, 0.78, 0.55, 0.45)
 
+; S-439 §H2.5 — replaced flat blue-grey Polygon2D mountains with shaded
+; CC0 mountain composites (kenney background-elements pointy_mountains
+; silhouette + ridge highlights + snow caps + valley shadows baked in
+; via scripts/gen-mountain-composite.mjs). Per-frame check
+; scripts/check-aesthetic-coverage.py asserts ≥6 hue clusters in the
+; cols 0-200 region of any in-game screenshot — passes by construction
+; (the front composite has 12 distinct quantized hue buckets).
+;
+; Sprite2D + region_enabled + texture_repeat tiles the 1001×168 source
+; horizontally across the parallax layer's -2000..2000 span. centered
+; = false anchors the top-left of the sprite at `position`. The back
+; layer uses the desaturated/lighter mountain_back.png so atmospheric
+; perspective is preserved.
+
 [node name="MountainsBack" type="ParallaxLayer" parent="."]
 motion_scale = Vector2(0.15, 0.05)
 
-[node name="MountainPoly2" type="Polygon2D" parent="MountainsBack"]
-color = Color(0.42, 0.52, 0.62, 1)
-polygon = PackedVector2Array(-2000, 320, -1700, 180, -1300, 240, -900, 120, -500, 230, -100, 100, 300, 230, 700, 110, 1100, 230, 1500, 170, 2000, 320)
+[node name="MountainBackSprite" type="Sprite2D" parent="MountainsBack"]
+texture = ExtResource("2_mback")
+centered = false
+position = Vector2(-2000, 152)
+region_enabled = true
+region_rect = Rect2(0, 0, 4004, 168)
+texture_repeat = 2
 
 [node name="Mountains" type="ParallaxLayer" parent="."]
 motion_scale = Vector2(0.3, 0.1)
 
-[node name="MountainPoly" type="Polygon2D" parent="Mountains"]
-color = Color(0.27, 0.35, 0.44, 1)
-polygon = PackedVector2Array(-2000, 360, -1500, 200, -1100, 290, -700, 160, -300, 280, 100, 140, 500, 280, 900, 150, 1300, 290, 1700, 180, 2000, 360)
-
-[node name="MountainSnow" type="Polygon2D" parent="Mountains"]
-color = Color(0.92, 0.94, 1.0, 1)
-polygon = PackedVector2Array(-1530, 220, -1500, 200, -1470, 220, -720, 178, -700, 160, -680, 178, 80, 158, 100, 140, 120, 158, 880, 168, 900, 150, 920, 168, 1680, 198, 1700, 180, 1720, 198)
+[node name="MountainFrontSprite" type="Sprite2D" parent="Mountains"]
+texture = ExtResource("3_mfront")
+centered = false
+position = Vector2(-2000, 192)
+region_enabled = true
+region_rect = Rect2(0, 0, 4004, 168)
+texture_repeat = 2
 
 [node name="Hills" type="ParallaxLayer" parent="."]
 motion_scale = Vector2(0.5, 0.2)
